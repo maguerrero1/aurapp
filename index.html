@@ -422,52 +422,62 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
   };
 
   // Cargar registros cuando cambia empresa
-  useEffect(()=>{ if(empresaId !== undefined) cargarRegistros(); },[empresaId, mesPeriodo, anioPeriodo]);
+  useEffect(()=>{ if(empresaId !== undefined) cargarRegistros(`${MESES[mesPeriodo]} ${anioPeriodo}`); },[empresaId, mesPeriodo, anioPeriodo]);
 
-  const cargarRegistros = async () => {
+  const cargarRegistros = async (periodoOverride) => {
     try {
       const nombreInd = isCumplimiento ? "cumplimiento" : "eficacia";
       const empFilter = empresaId ? `&empresa_id=eq.${empresaId}` : `&empresa_id=is.null`;
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores?indicador=eq.${nombreInd}${empFilter}&order=periodo.desc&select=*`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores?indicador=eq.${nombreInd}${empFilter}&order=created_at.desc&select=*`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       setRegistros(Array.isArray(data) ? data : []);
-      const actual = (Array.isArray(data)?data:[]).find(r=>r.periodo===(isCumplimiento?periodoKeyCalc:periodoKey));
+      const periodoBuscar = periodoOverride || (isCumplimiento ? `${MESES[mesPeriodo]} ${anioPeriodo}` : periodoKey);
+      const actual = (Array.isArray(data)?data:[]).find(r=>r.periodo===periodoBuscar);
       if(actual) { setRegistroActual(actual); setAnalisis(actual.analisis||""); setAcciones(actual.acciones||""); }
       else { setRegistroActual(null); setAnalisis(""); setAcciones(""); }
     } catch(e) { console.error(e); }
   };
 
   const guardarRegistro = async () => {
-    if(!empresaId) { alert("Selecciona una empresa antes de guardar el análisis."); return; }
+    if(!empresaId) { alert("Selecciona una empresa antes de guardar."); return; }
     setGuardando(true);
     const nombreInd = isCumplimiento ? "cumplimiento" : "eficacia";
+    const periodoPeriodo = isCumplimiento ? `${MESES[mesPeriodo]} ${anioPeriodo}` : periodoKey;
     const payload = {
-      indicador: nombreInd, periodo: isCumplimiento ? periodoKeyCalc : periodoKey, empresa_id: empresaId,
+      indicador: nombreInd, periodo: periodoPeriodo, empresa_id: empresaId,
       resultado, numerador: fichaData.numerador, denominador: fichaData.denominador,
       analisis, acciones, updated_at: new Date().toISOString()
     };
     try {
-      if(registroActual) {
-        await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores?id=eq.${registroActual.id}`, {
+      // Find record for THIS specific period
+      const registroPeriodo = registros.find(r=>r.periodo===periodoPeriodo && r.empresa_id===empresaId);
+      if(registroPeriodo) {
+        const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores?id=eq.${registroPeriodo.id}`, {
           method: "PATCH",
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "return=representation" },
           body: JSON.stringify(payload)
         });
+        if(!patchRes.ok) { const t = await patchRes.text(); throw new Error("PATCH falló: " + t); }
       } else {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores`, {
           method: "POST",
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "return=representation" },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
+        const txt = await res.text();
+        if(!res.ok) throw new Error("POST falló: " + txt);
+        const data = txt ? JSON.parse(txt) : [];
         if(Array.isArray(data)&&data[0]) setRegistroActual(data[0]);
       }
       setGuardadoOk(true);
       setTimeout(()=>setGuardadoOk(false), 2500);
-      cargarRegistros();
-    } catch(e) { console.error(e); }
+      cargarRegistros(isCumplimiento ? `${MESES[mesPeriodo]} ${anioPeriodo}` : periodoKey);
+    } catch(e) { 
+      console.error(e); 
+      alert("Error al guardar: " + e.message);
+    }
     setGuardando(false);
   };
 
@@ -526,8 +536,8 @@ Luego en nueva línea escribe "ACCIONES:" seguido de 1-2 acciones concretas.`;
           </div>
           <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
             {guardadoOk && <span style={{fontSize:"12px",color:"#059669",fontWeight:"500"}}>✓ Guardado</span>}
-            <button type="button" onClick={guardarRegistro} disabled={guardando||!analisis||!empresaId} style={{fontSize:"12px",padding:"7px 16px",border:"none",borderRadius:"8px",background:"#1a1714",color:"white",cursor:"pointer",fontWeight:"500",opacity:(!analisis||guardando||!empresaId)?0.45:1}}>
-              {guardando ? "Guardando…" : `Guardar ${periodoKeyCalc}`}
+            <button type="button" onClick={guardarRegistro} disabled={guardando||!empresaId} style={{fontSize:"12px",padding:"7px 16px",border:"none",borderRadius:"8px",background:"#1a1714",color:"white",cursor:"pointer",fontWeight:"500",opacity:(guardando||!empresaId)?0.45:1}}>
+              {guardando ? "Guardando…" : `Guardar ${isCumplimiento ? MESES[mesPeriodo]+" "+anioPeriodo : periodoKey}`}
             </button>
           </div>
         </div>
@@ -573,7 +583,7 @@ Luego en nueva línea escribe "ACCIONES:" seguido de 1-2 acciones concretas.`;
         <div style={{background:empresaId?bgRes:"var(--surface2)",border:`1px solid ${empresaId?colorRes+"25":"var(--border)"}`,borderRadius:"14px",padding:"22px 26px",marginBottom:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"16px"}}>
           <div>
             <div style={{fontSize:"10px",fontWeight:"600",color:empresaId?colorRes:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"4px"}}>
-              {empresaId ? `Resultado · ${periodoKey} · ${empNombre.split(" ").slice(0,2).join(" ")}` : `Resultado · ${periodoKeyCalc}`}
+              {empresaId ? `Resultado · ${periodoKey} · ${empNombre.split(" ").slice(0,2).join(" ")}` : `Resultado · ${isCumplimiento ? MESES[mesPeriodo]+" "+anioPeriodo : periodoKey}`}
             </div>
             <div style={{fontFamily:"Fraunces,serif",fontSize:"52px",fontWeight:"700",color:empresaId?colorRes:"var(--text3)",lineHeight:"1"}}>
               {empresaId ? (fichaData.denominador > 0 ? resultado+"%" : "—") : "—"}
@@ -640,7 +650,16 @@ Luego en nueva línea escribe "ACCIONES:" seguido de 1-2 acciones concretas.`;
             </div>
           </div>
           {!empresaId && <div style={{textAlign:"center",padding:"20px",color:"var(--text3)",fontSize:"13px"}}>Selecciona una empresa para generar o ver el análisis de este período.</div>}
-          {empresaId && !analisis && !generando && <div style={{textAlign:"center",padding:"24px",color:"var(--text3)",fontSize:"13px"}}>Haz clic en "Generar análisis" para crear el análisis con IA, o escríbelo manualmente.</div>}
+          {empresaId && !analisis && !generando && (
+            <div style={{textAlign:"center",padding:"24px"}}>
+              <div style={{fontSize:"13px",color:"var(--text2)",marginBottom:"14px"}}>
+                Los datos del período están listos. Haz clic en <strong>Generar análisis ✦</strong> para crear el análisis automáticamente con IA.
+              </div>
+              <button type="button" onClick={generarAnalisis} style={{fontSize:"13px",padding:"9px 22px",border:"none",borderRadius:"8px",background:"#c9a84c",color:"#1a1714",cursor:"pointer",fontWeight:"600"}}>
+                Generar análisis ✦
+              </button>
+            </div>
+          )}
           {generando && <div style={{textAlign:"center",padding:"24px",color:"var(--text3)",fontSize:"13px"}}>Analizando los datos…</div>}
           {analisis && !generando && (
             editandoAnalisis
@@ -779,56 +798,43 @@ function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
         </div>
       </div>
 
-      {/* Resumen anual por mes — gráfica + tabla unificadas */}
+      {/* Cumplimiento mensual */}
       <div className="card" style={{padding:"24px",marginBottom:"20px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"10px"}}>
           <div>
             <div style={{fontSize:"12px",fontWeight:"600",color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Cumplimiento mensual {new Date().getFullYear()}</div>
-            <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Capacitaciones programadas vs ejecutadas por mes</div>
+            <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Programadas vs ejecutadas · mes a mes</div>
           </div>
-          <div style={{display:"flex",gap:"16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"12px",color:"var(--text2)"}}><div style={{width:"10px",height:"10px",background:"#e8e0d0",borderRadius:"2px"}}/> Programadas</div>
-            <div style={{display:"flex",alignItems:"center",gap:"5px",fontSize:"12px",color:"var(--text2)"}}><div style={{width:"10px",height:"10px",background:"#c9a84c",borderRadius:"2px"}}/> Ejecutadas</div>
-          </div>
+
         </div>
 
-        {/* Gráfica de barras elegante */}
-        <div style={{display:"flex",gap:"4px",alignItems:"flex-end",height:"120px",marginBottom:"8px",padding:"0 4px"}}>
-          {mesesData.map((m,i)=>{
-            const isCurrentOrPast = i <= new Date().getMonth();
-            const maxVal = Math.max(...mesesData.map(x=>x.programadas), 1);
-            const pct = m.programadas > 0 ? Math.round((m.ejecutadas/m.programadas)*100) : null;
-            return (
-              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"0",height:"100%",justifyContent:"flex-end",opacity:isCurrentOrPast?1:0.35}}>
-                <div style={{width:"100%",display:"flex",gap:"1px",alignItems:"flex-end",height:"100px",justifyContent:"center"}}>
-                  <div style={{flex:1,background:"#e8e0d0",borderRadius:"3px 3px 0 0",height:m.programadas>0?`${Math.round((m.programadas/maxVal)*100)}%`:"2px",minHeight:"2px",transition:"height 0.3s"}} title={`Programadas: ${m.programadas}`}/>
-                  <div style={{flex:1,background:pct===100?"#c9a84c":pct>=80?"#c9a84c":pct>0?"#d97706":"transparent",borderRadius:"3px 3px 0 0",height:m.ejecutadas>0?`${Math.round((m.ejecutadas/maxVal)*100)}%`:"0",minHeight:m.ejecutadas>0?"2px":"0",transition:"height 0.3s"}} title={`Ejecutadas: ${m.ejecutadas}`}/>
-                </div>
-                <div style={{fontSize:"9px",color:i===new Date().getMonth()?"var(--accent2)":"var(--text3)",fontWeight:i===new Date().getMonth()?"700":"400",marginTop:"4px",textTransform:"uppercase",letterSpacing:"0.04em"}}>{m.mes}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Línea divisora */}
-        <div style={{height:"0.5px",background:"var(--border)",margin:"16px 0"}}/>
-
-        {/* Tabla compacta mes a mes */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:"8px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:"10px"}}>
           {mesesData.map((m,i)=>{
             if(i > new Date().getMonth()) return null;
             const pct = m.programadas > 0 ? Math.round((m.ejecutadas/m.programadas)*100) : null;
-            const color = pct===null?"var(--text3)":pct>=80?"#c9a84c":pct>=50?"#d97706":"#dc2626";
-            const bg = pct===null?"var(--surface2)":pct>=80?"#fdf9f0":pct>=50?"#fffbeb":"#fef2f2";
+            const sinDatos = m.programadas === 0;
+            const cumple = pct !== null && pct >= 80;
+            const color = sinDatos ? "var(--text3)" : cumple ? "#c9a84c" : pct >= 50 ? "#d97706" : "#dc2626";
+            const bg = sinDatos ? "var(--surface2)" : cumple ? "#fdf9f0" : pct >= 50 ? "#fffbeb" : "#fef2f2";
+            const borderColor = sinDatos ? "var(--border)" : cumple ? "#c9a84c40" : pct >= 50 ? "#d9770640" : "#dc262640";
+            const isCurrent = i === new Date().getMonth();
             return (
-              <div key={i} style={{background:bg,borderRadius:"8px",padding:"10px 12px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
-                  <span style={{fontSize:"11px",fontWeight:"600",color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.05em"}}>{MESES[i].slice(0,3)}</span>
-                  <span style={{fontFamily:"Fraunces,serif",fontSize:"16px",fontWeight:"700",color}}>{pct!==null?pct+"%":"—"}</span>
+              <div key={i} style={{background:bg,borderRadius:"10px",padding:"14px 14px 12px",border:`1px solid ${borderColor}`,position:"relative"}}>
+                {isCurrent && <div style={{position:"absolute",top:"8px",right:"8px",width:"6px",height:"6px",borderRadius:"50%",background:"#c9a84c"}}/>}
+                <div style={{fontSize:"10px",fontWeight:"700",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"8px"}}>{MESES[i].slice(0,3)}</div>
+                <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color,lineHeight:"1",marginBottom:"6px"}}>
+                  {sinDatos ? "—" : pct+"%"}
                 </div>
-                <div style={{fontSize:"10px",color:"var(--text3)"}}>{m.ejecutadas}/{m.programadas} cap.</div>
-                <div style={{marginTop:"6px",height:"3px",background:"rgba(0,0,0,0.06)",borderRadius:"2px",overflow:"hidden"}}>
-                  <div style={{height:"100%",width:pct?`${Math.min(pct,100)}%`:"0%",background:color,borderRadius:"2px",transition:"width 0.3s"}}/>
+                <div style={{fontSize:"10px",color:"var(--text2)",marginBottom:"8px"}}>
+                  {sinDatos ? "Sin programación" : `${m.ejecutadas} de ${m.programadas}`}
+                </div>
+                <div style={{height:"3px",background:"rgba(0,0,0,0.06)",borderRadius:"2px",overflow:"hidden"}}>
+                  <div style={{height:"100%",width:sinDatos?"0%":`${Math.min(pct,100)}%`,background:color,borderRadius:"2px",transition:"width 0.4s"}}/>
+                </div>
+                <div style={{marginTop:"8px"}}>
+                  <span style={{fontSize:"10px",fontWeight:"600",color,padding:"2px 8px",background:"rgba(255,255,255,0.6)",borderRadius:"20px"}}>
+                    {sinDatos ? "Sin datos" : cumple ? "✓ Cumple" : "✗ No cumple"}
+                  </span>
                 </div>
               </div>
             );
@@ -896,46 +902,7 @@ function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
           </div>
         );
       })()}
-      {/* Tabla resumen por mes */}
-      <div className="card">
-        <div style={{padding:"16px 20px",borderBottom:"1px solid var(--border)",fontSize:"12px",fontWeight:"600",color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.05em"}}>Resumen mes a mes</div>
-        <div className="table-wrap">
-          <table>
-            <thead><tr>
-              <th>Mes</th><th>Programadas</th><th>Ejecutadas</th><th>% Cumplimiento</th><th>Estado</th>
-            </tr></thead>
-            <tbody>
-              {mesesData.map((m,i)=>({...m,idx:i})).filter(m=>m.idx<=new Date().getMonth()).map((m)=>(
-                <tr key={m.idx}>
-                  <td style={{fontWeight:"500"}}>{MESES[m.idx]}</td>
-                  <td>{m.programadas}</td>
-                  <td>{m.ejecutadas}</td>
-                  <td>
-                    {m.pct!==null ? (
-                      <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                        <div className="progress-bar-wrap" style={{width:"60px",height:"4px"}}><div className="progress-bar-fill" style={{width:`${m.pct}%`,background:m.pct>=80?"#c9a84c":m.pct>=50?"#d97706":"#dc2626"}}/></div>
-                        <span style={{fontSize:"13px",fontWeight:"500"}}>{m.pct}%</span>
-                      </div>
-                    ) : "—"}
-                  </td>
-                  <td>
-                    <span className="badge" style={{
-                      background:m.pct===null?"var(--surface2)":m.pct>=80?"#ecfdf5":m.pct>=50?"#fffbeb":"#fef2f2",
-                      color:m.pct===null?"var(--text3)":m.pct>=80?"#c9a84c":m.pct>=50?"#d97706":"#dc2626"
-                    }}>
-                      {m.pct===null?"Sin datos":m.pct>=80?"En meta":m.pct>=50?"En progreso":"Bajo meta"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {mesesData.filter((m,i)=>i<=new Date().getMonth()).length===0 && (
-                <tr><td colSpan="5" style={{textAlign:"center",color:"var(--text3)",padding:"30px"}}>No hay capacitaciones con mes programado asignado.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+      {/* Tabla resumen por mes */}    </div>
   );
 }
 // ── FORMULARIO ──
