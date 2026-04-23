@@ -346,6 +346,8 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
   const { useState, useEffect } = React;
 
   const [empresaId, setEmpresaId] = useState("");
+  const [mesPeriodo, setMesPeriodo] = useState(new Date().getMonth());
+  const [anioPeriodo, setAnioPeriodo] = useState(new Date().getFullYear());
   const [analisis, setAnalisis] = useState("");
   const [acciones, setAcciones] = useState("");
   const [generando, setGenerando] = useState(false);
@@ -370,24 +372,27 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
   const empNombre = empresas.find(e=>e.id===empresaId)?.nombre || "Todas las empresas";
 
   // Cálculos
-  // Para cumplimiento en ficha: programadas y ejecutadas del mes actual (periodoKey)
-  const mesActualNum = hoy.getMonth();
-  const anioFicha = hoy.getFullYear();
-  const programadasMesActual = capsEmp.filter(c=>{
+  // Cumplimiento: usar el período seleccionado
+  const programadasPeriodo = isCumplimiento ? capsEmp.filter(c=>{
     if(!c.mes_programado) return false;
     const d = new Date(c.mes_programado);
-    return d.getMonth() === mesActualNum && d.getFullYear() === anioFicha;
-  }).length;
-  const ejecutadasMesActual = capsEmp.filter(c=>{
-    if(c.estado!=="Ejecutada") return false;
-    // contar ejecutadas cuya mes_programado es este mes
-    if(!c.mes_programado) return false;
+    return d.getMonth() === mesPeriodo && d.getFullYear() === anioPeriodo;
+  }).length : 0;
+
+  const ejecutadasPeriodo = isCumplimiento ? capsEmp.filter(c=>{
+    if(c.estado!=="Ejecutada" || !c.mes_programado) return false;
     const d = new Date(c.mes_programado);
-    return d.getMonth() === mesActualNum && d.getFullYear() === anioFicha;
-  }).length;
-  const conMesProg = isCumplimiento ? programadasMesActual : 0;
-  const ejecutadas = isCumplimiento ? ejecutadasMesActual : capsEmp.filter(c=>c.estado==="Ejecutada").length;
+    return d.getMonth() === mesPeriodo && d.getFullYear() === anioPeriodo;
+  }).length : 0;
+
+  const conMesProg = isCumplimiento ? programadasPeriodo : 0;
+  const ejecutadas = isCumplimiento ? ejecutadasPeriodo : capsEmp.filter(c=>c.estado==="Ejecutada").length;
   const pctCumplimiento = conMesProg > 0 ? Math.round((ejecutadas/conMesProg)*100) : 0;
+
+  // periodoKey dinámico según mes seleccionado
+  const periodoKeyCalc = isCumplimiento
+    ? `${MESES[mesPeriodo]} ${anioPeriodo}`
+    : periodoKey;
   const evaluadas = capsEmp.filter(c=>c.estado==="Ejecutada" && c.eficacia_fecha);
   const eficaces = evaluadas.filter(c=>c.fue_eficaz===true).length;
   const pctEficacia = evaluadas.length > 0 ? Math.round((eficaces/evaluadas.length)*100) : 0;
@@ -403,8 +408,8 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
     meta: "≥ 80 %", frecuenciaMedicion: "Mensual", frecuenciaAnalisis: "Mensual",
     fuente: "Plan de formación", cargos: "Gerencia · Líderes",
     responsable: "Líder Senior de Gestión Humana",
-    numerador: ejecutadasMesActual, denominador: programadasMesActual,
-    labelNum: "Ejecutadas este mes", labelDen: "Programadas este mes",
+    numerador: ejecutadasPeriodo, denominador: programadasPeriodo,
+    labelNum: "Ejecutadas en el período", labelDen: "Programadas en el período",
   } : {
     nombre: "Eficacia de la Capacitación",
     objetivo: "Medir el porcentaje de capacitaciones que cumplen con los criterios de eficacia definidos por la organización, con el fin de evaluar la efectividad del plan de formación y optimizar las acciones de desarrollo implementadas.",
@@ -417,7 +422,7 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
   };
 
   // Cargar registros cuando cambia empresa
-  useEffect(()=>{ if(empresaId !== undefined) cargarRegistros(); },[empresaId]);
+  useEffect(()=>{ if(empresaId !== undefined) cargarRegistros(); },[empresaId, mesPeriodo, anioPeriodo]);
 
   const cargarRegistros = async () => {
     try {
@@ -428,7 +433,7 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
       });
       const data = await res.json();
       setRegistros(Array.isArray(data) ? data : []);
-      const actual = (Array.isArray(data)?data:[]).find(r=>r.periodo===periodoKey);
+      const actual = (Array.isArray(data)?data:[]).find(r=>r.periodo===(isCumplimiento?periodoKeyCalc:periodoKey));
       if(actual) { setRegistroActual(actual); setAnalisis(actual.analisis||""); setAcciones(actual.acciones||""); }
       else { setRegistroActual(null); setAnalisis(""); setAcciones(""); }
     } catch(e) { console.error(e); }
@@ -439,7 +444,7 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
     setGuardando(true);
     const nombreInd = isCumplimiento ? "cumplimiento" : "eficacia";
     const payload = {
-      indicador: nombreInd, periodo: periodoKey, empresa_id: empresaId,
+      indicador: nombreInd, periodo: isCumplimiento ? periodoKeyCalc : periodoKey, empresa_id: empresaId,
       resultado, numerador: fichaData.numerador, denominador: fichaData.denominador,
       analisis, acciones, updated_at: new Date().toISOString()
     };
@@ -522,7 +527,7 @@ Luego en nueva línea escribe "ACCIONES:" seguido de 1-2 acciones concretas.`;
           <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
             {guardadoOk && <span style={{fontSize:"12px",color:"#059669",fontWeight:"500"}}>✓ Guardado</span>}
             <button type="button" onClick={guardarRegistro} disabled={guardando||!analisis||!empresaId} style={{fontSize:"12px",padding:"7px 16px",border:"none",borderRadius:"8px",background:"#1a1714",color:"white",cursor:"pointer",fontWeight:"500",opacity:(!analisis||guardando||!empresaId)?0.45:1}}>
-              {guardando ? "Guardando…" : `Guardar ${periodoKey}`}
+              {guardando ? "Guardando…" : `Guardar ${periodoKeyCalc}`}
             </button>
           </div>
         </div>
@@ -543,18 +548,38 @@ Luego en nueva línea escribe "ACCIONES:" seguido de 1-2 acciones concretas.`;
           </div>
           {!empresaId && <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"10px"}}>Selecciona una empresa para ver su resultado, generar el análisis y guardar el registro.</div>}
         </div>
+        {isCumplimiento && empresaId && (
+          <div style={{marginTop:"12px",display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}}>
+            <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text2)"}}>Período a analizar:</div>
+            <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+              {MESES.map((mes,i)=>{
+                const esFuturo = i > hoy.getMonth() && anioPeriodo >= hoy.getFullYear();
+                if(esFuturo) return null;
+                return (
+                  <button key={i} type="button" onClick={()=>{ setMesPeriodo(i); }}
+                    style={{padding:"4px 12px",borderRadius:"6px",fontSize:"12px",cursor:"pointer",border:"0.5px solid",
+                      borderColor:mesPeriodo===i?"#c9a84c":"var(--border)",
+                      background:mesPeriodo===i?"#fdf9f0":"var(--surface)",
+                      color:mesPeriodo===i?"#a8893a":"var(--text2)",fontWeight:mesPeriodo===i?"600":"400"}}>
+                    {mes.slice(0,3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Resultado */}
         <div style={{background:empresaId?bgRes:"var(--surface2)",border:`1px solid ${empresaId?colorRes+"25":"var(--border)"}`,borderRadius:"14px",padding:"22px 26px",marginBottom:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"16px"}}>
           <div>
             <div style={{fontSize:"10px",fontWeight:"600",color:empresaId?colorRes:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"4px"}}>
-              {empresaId ? `Resultado · ${periodoKey} · ${empNombre.split(" ").slice(0,2).join(" ")}` : `Resultado · ${periodoKey}`}
+              {empresaId ? `Resultado · ${periodoKey} · ${empNombre.split(" ").slice(0,2).join(" ")}` : `Resultado · ${periodoKeyCalc}`}
             </div>
             <div style={{fontFamily:"Fraunces,serif",fontSize:"52px",fontWeight:"700",color:empresaId?colorRes:"var(--text3)",lineHeight:"1"}}>
               {empresaId ? (fichaData.denominador > 0 ? resultado+"%" : "—") : "—"}
             </div>
             <div style={{fontSize:"13px",color:"var(--text2)",marginTop:"6px"}}>
-              {empresaId ? `${fichaData.numerador} de ${fichaData.denominador} · Meta: ${fichaData.meta}` : "Selecciona una empresa para ver el resultado"}
+              {empresaId ? `${fichaData.numerador} de ${fichaData.denominador} · Meta: ${fichaData.meta} · ${periodoKeyCalc}` : "Selecciona una empresa para ver el resultado"}
             </div>
           </div>
           {empresaId && (
@@ -724,7 +749,7 @@ function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
           </div>
           <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
             <span style={{fontFamily:"Fraunces,serif",fontSize:"40px",fontWeight:"700",color:pctCumplimiento>=80?"#c9a84c":pctCumplimiento>=50?"#d97706":"#dc2626"}}>{pctCumplimiento}%</span>
-            <span style={{fontSize:"12px",color:"var(--text3)"}}>meta: 75%</span>
+            <span style={{fontSize:"12px",color:"var(--text3)"}}>meta: 80%</span>
           </div>
           <div className="progress-bar-wrap" style={{marginBottom:"8px"}}><div className="progress-bar-fill" style={{width:`${Math.min(pctCumplimiento,100)}%`,background:pctCumplimiento>=80?"#c9a84c":pctCumplimiento>=50?"#d97706":"#dc2626"}}/></div>
           <div style={{fontSize:"12px",color:"var(--text2)"}}>
