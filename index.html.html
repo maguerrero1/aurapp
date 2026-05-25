@@ -1,0 +1,2363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Aura · Mariale Guerrero</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f9f8f6;--surface:#ffffff;--surface2:#f4f1ec;--border:#ece6dd;
+  --text:#1a1714;--text2:#5a534c;--text3:#a09890;
+  --accent:#c9a84c;--accent2:#a8893a;--accent-light:#fdf9f0;
+  --danger:#dc2626;--warn:#d97706;--radius:10px;
+  --shadow:0 1px 3px rgba(0,0,0,0.05),0 1px 2px rgba(0,0,0,0.03);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+h1,h2,h3{font-family:'Fraunces',serif;}
+input,select,textarea{
+  font-family:'DM Sans',sans-serif;font-size:14px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;
+  color:var(--text);width:100%;outline:none;transition:border-color 0.15s;
+}
+input:focus,select:focus,textarea:focus{border-color:#c9a84c;box-shadow:0 0 0 3px rgba(201,168,76,0.1);}
+textarea{resize:vertical;min-height:80px;}
+button{font-family:'DM Sans',sans-serif;cursor:pointer;border:none;outline:none;}
+.btn-primary{background:#1a1714;color:#ffffff;padding:9px 20px;border-radius:var(--radius);font-size:14px;font-weight:500;transition:all 0.15s;letter-spacing:0.02em;}
+.btn-primary:hover{background:#2d2824;}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-ghost{background:transparent;color:var(--text2);padding:8px 16px;border-radius:var(--radius);font-size:14px;border:1px solid var(--border);transition:background 0.12s;}
+.btn-ghost:hover{background:var(--surface2);}
+.label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block;letter-spacing:0.02em;}
+.field{margin-bottom:14px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;letter-spacing:0.02em;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:20px;overflow-y:auto;}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(0,0,0,0.18);margin:auto;}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-body{padding:20px 24px;max-height:75vh;overflow-y:auto;}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr;}.sidebar{width:100%;min-height:auto;}.app-layout{flex-direction:column;}}
+.sidebar{width:220px;flex-shrink:0;background:#f4f1ec;border-right:0.5px solid #ece6dd;min-height:100vh;display:flex;flex-direction:column;}
+.main{flex:1;overflow-x:auto;}
+.app-layout{display:flex;min-height:100vh;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;border-radius:8px;margin:2px 8px;font-size:14px;font-weight:500;color:#8c857a;cursor:pointer;transition:all 0.12s;background:none;width:calc(100% - 16px);text-align:left;}
+.nav-item:hover{background:#ede8df;color:#1a1714;}
+.nav-item.active{background:#fdf8ec;color:#a8893a;border-left:2px solid #c9a84c;padding-left:14px;}
+.page{padding:28px 32px;}
+.page-header{margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
+.stat-num{font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:#0d0d0d;}
+.stat-label{font-size:12px;color:var(--text2);margin-top:2px;font-weight:500;}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{font-size:11px;font-weight:600;color:var(--text2);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--surface2);}
+.chip-group{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{padding:4px 10px;border-radius:20px;font-size:12px;border:1px solid var(--border);cursor:pointer;background:var(--surface);color:var(--text2);transition:all 0.12s;}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:18px;text-align:center;cursor:pointer;transition:border-color 0.15s,background 0.15s;display:block;}
+.upload-zone:hover{border-color:var(--accent2);background:var(--accent-light);}
+.file-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border-radius:8px;margin-top:6px;font-size:13px;}
+.section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin:20px 0 12px;border-top:1px solid var(--border);padding-top:16px;}
+.alert{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:14px;}
+.alert-warn{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;}
+.alert-err{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3);}
+.search-wrap{position:relative;}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;}
+.search-wrap input{padding-left:36px;}
+.progress-bar-wrap{background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;}
+.progress-bar-fill{height:100%;background:#c9a84c;border-radius:4px;transition:width 0.3s;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const SUPABASE_URL = "https://weildhnhgqvqlpkkclln.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlaWxkaG5oZ3F2cWxwa2tjbGxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1Mjk1MTEsImV4cCI6MjA5MjEwNTUxMX0.Ks_mEiCrkcBPrQlPcZd-Bdq-M1ofuSw-xZhqIXe9oVM";
+
+const api = async (path, opts = {}, token = "") => {
+  const headers = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${token || SUPABASE_KEY}`,
+    "Content-Type": "application/json",
+    Prefer: opts.prefer || "return=representation",
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...opts, headers });
+  if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+};
+
+const authLogin = async (email, password) => {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.message || data.msg || JSON.stringify(data));
+  return data;
+};
+
+const fetchPerfil = async (userId, token) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/perfiles?id=eq.${userId}&select=rol,nombre,modulos`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  return data?.[0] || { rol: 'colaborador', nombre: '', modulos: ['formacion'] };
+};
+
+const LINEAS = [
+  "Técnicos / Operativos: (Procesos, BPM, calidad, seguridad, manejo de equipos, estándares técnicos)",
+  "Obligatorios / Regulatorios: (Actualizaciones, normativas, requisitos legales)",
+  "Competencias blandas / Habilidades transversales: (Liderazgo, comunicación, servicio, trabajo en equipo)",
+  "Otras necesidades identificadas",
+];
+const COMPONENTES = [
+  "Ambiental (Línea Técnica)",
+  "Gestión del Conocimiento (Línea Desarrollo del Ser)",
+  "Legales y Aseguramiento de la Calidad (Línea Técnica)",
+  "Liderazgo y Cultura Organizacional (línea Desarrollo del Ser)",
+  "Mejoramiento Continuo (Línea Técnica)",
+  "Mantenimiento autónomo (Línea Técnica)",
+  "Riesgo Químico (Línea Técnica)",
+];
+const TIPOS = ["Capacitación","Taller","Diplomado","Mentoría","Charla","Socialización","Curso","Conferencia","Conversatorio","Entrenamiento","Seminario","Webinar","Congreso","Panel"];
+const FUENTES = ["Propios","ARL","Comfama","EPS","Otros"];
+const ESTADOS = ["Sin iniciar","En proceso","Ejecutada"];
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const TIPOS_EVIDENCIA = [
+  {key:"asistencia", label:"Lista de asistencia"},
+  {key:"material", label:"Material (presentación/guía)"},
+  {key:"evaluacion", label:"Evaluaciones / pruebas"},
+  {key:"certificado", label:"Certificados"},
+];
+const estadoColor = {"Sin iniciar":"#64748b","En proceso":"#d97706","Ejecutada":"#059669"};
+const estadoBg = {"Sin iniciar":"#f1f5f9","En proceso":"#fffbeb","Ejecutada":"#ecfdf5"};
+
+// ── ICONS ──
+const Ico = {
+  home: <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>,
+  list: <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>,
+  plus: <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>,
+  download: <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>,
+  logout: <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>,
+  close: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>,
+  edit: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
+  trash: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
+  building: <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>,
+  search: <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>,
+  file: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>,
+  upload: <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>,
+};
+
+// ── LOGIN ──
+function Login({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setErr("");
+    try {
+      const data = await authLogin(email, pass);
+      if (!data?.access_token) throw new Error("No se recibió token. Verifica tus credenciales.");
+      localStorage.setItem("gh_token", data.access_token);
+      await onLogin(data.access_token, data.user);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#f9f8f6",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+      <div style={{width:"100%",maxWidth:"360px"}}>
+        <div style={{textAlign:"center",marginBottom:"36px"}}>
+          <svg width="48" height="32" viewBox="0 0 52 38" fill="none" style={{marginBottom:"20px"}}>
+            <path d="M4 34 A24 24 0 0 1 48 34" stroke="#1a1714" strokeWidth="0.9" strokeLinecap="round"/>
+            <path d="M12 34 A16 16 0 0 1 40 34" stroke="#1a1714" strokeWidth="0.9" strokeLinecap="round"/>
+            <circle cx="26" cy="34" r="2.5" fill="#1a1714"/>
+          </svg>
+          <h1 style={{fontSize:"40px",fontWeight:"700",color:"#1a1714",letterSpacing:"-0.04em",fontFamily:"Fraunces,serif",lineHeight:"1"}}>Aura</h1>
+        </div>
+        <div style={{background:"#ffffff",border:"0.5px solid #ece6dd",borderRadius:"14px",padding:"28px"}}>
+          {err && <div className="alert alert-err">{err}</div>}
+          <form onSubmit={submit}>
+            <div className="field">
+              <label className="label">Correo electrónico</label>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tucorreo@empresa.com" required/>
+            </div>
+            <div className="field">
+              <label className="label">Contraseña</label>
+              <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" required/>
+            </div>
+            <button type="submit" className="btn-primary" style={{width:"100%",marginTop:"8px"}} disabled={loading}>
+              {loading ? "Ingresando…" : "Ingresar"}
+            </button>
+          </form>
+        </div>
+        <div style={{textAlign:"center",marginTop:"28px"}}>
+          <span style={{fontSize:"9px",color:"#c9a84c",letterSpacing:"0.28em",fontStyle:"italic",opacity:"0.5"}}>Brajá</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DASHBOARD ──
+
+// ── REGISTROS HISTÓRICOS ──
+function RegistrosHistoricos({ registros, meta, periodoKey, empNombre, token, onActualizar }) {
+  const { useState } = React;
+  const [expandido, setExpandido] = useState(null);
+  const [editando, setEditando] = useState(null);
+  const [valAnalisis, setValAnalisis] = useState("");
+  const [valAcciones, setValAcciones] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  const abrirEdicion = (r) => {
+    setEditando(r.id);
+    setValAnalisis(r.analisis || "");
+    setValAcciones(r.acciones || "");
+  };
+
+  const guardarEdicion = async (id) => {
+    setGuardando(true);
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ analisis: valAnalisis, acciones: valAcciones, updated_at: new Date().toISOString() })
+      });
+      setEditando(null);
+      onActualizar();
+    } catch(e) { console.error(e); }
+    setGuardando(false);
+  };
+
+  return (
+    <div style={{background:"var(--surface)",border:"0.5px solid var(--border)",borderRadius:"12px",padding:"20px"}}>
+      <div style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"16px"}}>
+        Registros históricos · {empNombre.split(" ").slice(0,2).join(" ")}
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+        {registros.map((r,i)=>{
+          const c = r.denominador===0 ? "var(--text3)" : r.resultado >= meta ? "#c9a84c" : r.resultado >= meta*0.6 ? "#d97706" : "#dc2626";
+          const bg = r.denominador===0 ? "var(--surface2)" : r.resultado >= meta ? "#fdf9f0" : r.resultado >= meta*0.6 ? "#fffbeb" : "#fef2f2";
+          const isExp = expandido === r.id;
+          const isEdit = editando === r.id;
+          const esPeriodoActual = r.periodo === periodoKey;
+          return (
+            <div key={r.id} style={{border:"0.5px solid var(--border)",borderRadius:"10px",overflow:"hidden"}}>
+              {/* Fila resumen */}
+              <div style={{display:"flex",alignItems:"center",gap:"12px",padding:"12px 16px",background:esPeriodoActual?"var(--surface2)":"var(--surface)",cursor:"pointer"}}
+                onClick={()=>setExpandido(isExp ? null : r.id)}>
+                <div style={{flex:"0 0 110px"}}>
+                  <div style={{fontSize:"13px",fontWeight:"500",color:"var(--text)"}}>{r.periodo}</div>
+                  {esPeriodoActual && <div style={{fontSize:"9px",color:"#c9a84c",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"1px"}}>Período actual</div>}
+                </div>
+                <div style={{flex:"0 0 70px"}}>
+                  <span style={{fontFamily:"Fraunces,serif",fontSize:"20px",fontWeight:"700",color:c}}>
+                          {r.denominador===0 ? "—" : r.resultado !== null ? r.resultado+"%" : "—"}
+                        </span>
+                </div>
+                <div style={{flex:"0 0 80px"}}>
+                  <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 10px",borderRadius:"20px",background:bg,color:c}}>{r.denominador===0 ? "Sin programación" : r.resultado >= meta ? "Cumple" : "No cumple"}</span>
+                </div>
+                <div style={{flex:1,fontSize:"12px",color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {r.analisis ? r.analisis.slice(0,60)+"…" : <span style={{color:"var(--text3)",fontStyle:"italic"}}>Sin análisis</span>}
+                </div>
+                <div style={{fontSize:"11px",color:"var(--text3)",flexShrink:0}}>
+                  {isExp ? "▲" : "▼"}
+                </div>
+              </div>
+
+              {/* Detalle expandido */}
+              {isExp && (
+                <div style={{padding:"16px",borderTop:"0.5px solid var(--border)",background:"var(--bg)"}}>
+                  <div style={{display:"flex",justifyContent:"flex-end",gap:"8px",marginBottom:"12px"}}>
+                    {!isEdit
+                      ? <button type="button" onClick={()=>abrirEdicion(r)} style={{fontSize:"12px",padding:"5px 14px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"none",color:"var(--text2)",cursor:"pointer"}}>Editar</button>
+                      : <>
+                          <button type="button" onClick={()=>setEditando(null)} style={{fontSize:"12px",padding:"5px 12px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"none",color:"var(--text2)",cursor:"pointer"}}>Cancelar</button>
+                          <button type="button" onClick={()=>guardarEdicion(r.id)} disabled={guardando} style={{fontSize:"12px",padding:"5px 14px",border:"none",borderRadius:"7px",background:"#1a1714",color:"white",cursor:"pointer",fontWeight:"500"}}>
+                            {guardando ? "Guardando…" : "Guardar cambios"}
+                          </button>
+                        </>
+                    }
+                  </div>
+
+                  <div style={{marginBottom:"14px"}}>
+                    <div style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"8px"}}>Análisis</div>
+                    {isEdit
+                      ? <textarea value={valAnalisis} onChange={e=>setValAnalisis(e.target.value)}
+                          style={{width:"100%",minHeight:"120px",fontSize:"14px",lineHeight:"1.7",color:"var(--text)",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"12px",background:"var(--surface)",fontFamily:"var(--font-sans)"}}/>
+                      : <p style={{fontSize:"14px",lineHeight:"1.8",color:"var(--text)"}}>{r.analisis || <span style={{color:"var(--text3)",fontStyle:"italic"}}>Sin análisis registrado.</span>}</p>
+                    }
+                  </div>
+
+                  {(r.acciones || isEdit) && (
+                    <div>
+                      <div style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"8px"}}>Acciones</div>
+                      {isEdit
+                        ? <textarea value={valAcciones} onChange={e=>setValAcciones(e.target.value)}
+                            style={{width:"100%",minHeight:"80px",fontSize:"14px",lineHeight:"1.7",color:"var(--text)",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"12px",background:"var(--surface)",fontFamily:"var(--font-sans)"}}/>
+                        : <p style={{fontSize:"14px",lineHeight:"1.8",color:"var(--text)"}}>{r.acciones}</p>
+                      }
+                    </div>
+                  )}
+
+                  <div style={{display:"flex",gap:"16px",marginTop:"14px",paddingTop:"12px",borderTop:"0.5px solid var(--border)"}}>
+                    <div style={{fontSize:"12px",color:"var(--text2)"}}>
+                      <span style={{color:"var(--text3)"}}>Numerador: </span>{r.numerador}
+                    </div>
+                    <div style={{fontSize:"12px",color:"var(--text2)"}}>
+                      <span style={{color:"var(--text3)"}}>Denominador: </span>{r.denominador}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── FICHA INDICADOR ──
+function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
+  const isCumplimiento = tipo === "cumplimiento";
+  const { useState, useEffect } = React;
+
+  const [empresaId, setEmpresaId] = useState("");
+  const [mesPeriodo, setMesPeriodo] = useState(new Date().getMonth());
+  const [anioPeriodo, setAnioPeriodo] = useState(new Date().getFullYear());
+  const [analisis, setAnalisis] = useState("");
+  const [acciones, setAcciones] = useState("");
+  const [generando, setGenerando] = useState(false);
+  const [editandoAnalisis, setEditandoAnalisis] = useState(false);
+  const [editandoAcciones, setEditandoAcciones] = useState(false);
+  const [registros, setRegistros] = useState([]);
+  const [guardando, setGuardando] = useState(false);
+  const [guardadoOk, setGuardadoOk] = useState(false);
+  const [registroActual, setRegistroActual] = useState(null);
+
+  // Período actual
+  const hoy = new Date();
+  const mesActual = hoy.toLocaleString("es-CO", { month: "long" });
+  const anio = hoy.getFullYear();
+  const trimestre = Math.ceil((hoy.getMonth()+1)/3);
+  const periodoKey = isCumplimiento
+    ? `${mesActual.charAt(0).toUpperCase()+mesActual.slice(1)} ${anio}`
+    : `T${trimestre} ${anio}`;
+
+  // Caps filtradas por empresa seleccionada
+  const capsEmp = empresaId ? caps.filter(c=>c.empresa_id===empresaId) : caps;
+  const empNombre = empresas.find(e=>e.id===empresaId)?.nombre || "Todas las empresas";
+
+  // Cálculos
+  // Cumplimiento: usar el período seleccionado
+  const programadasPeriodo = isCumplimiento ? capsEmp.filter(c=>{
+    if(!c.mes_programado) return false;
+    const d = new Date(c.mes_programado);
+    return d.getMonth() === mesPeriodo && d.getFullYear() === anioPeriodo;
+  }).length : 0;
+
+  const ejecutadasPeriodo = isCumplimiento ? capsEmp.filter(c=>{
+    if(c.estado!=="Ejecutada" || !c.mes_programado) return false;
+    const d = new Date(c.mes_programado);
+    return d.getMonth() === mesPeriodo && d.getFullYear() === anioPeriodo;
+  }).length : 0;
+
+  const conMesProg = isCumplimiento ? programadasPeriodo : 0;
+  const ejecutadas = isCumplimiento ? ejecutadasPeriodo : capsEmp.filter(c=>c.estado==="Ejecutada").length;
+  const pctCumplimiento = conMesProg > 0 ? Math.round((ejecutadas/conMesProg)*100) : 0;
+
+  // periodoKey dinámico según mes seleccionado
+  const periodoKeyCalc = isCumplimiento
+    ? `${MESES[mesPeriodo]} ${anioPeriodo}`
+    : periodoKey;
+  const evaluadas = capsEmp.filter(c=>c.estado==="Ejecutada" && c.eficacia_fecha);
+  const eficaces = evaluadas.filter(c=>c.fue_eficaz===true).length;
+  const pctEficacia = evaluadas.length > 0 ? Math.round((eficaces/evaluadas.length)*100) : 0;
+
+  const resultado = isCumplimiento ? pctCumplimiento : pctEficacia;
+  const meta = isCumplimiento ? 80 : 75;
+  const cumpleMeta = resultado >= meta;
+
+  const fichaData = isCumplimiento ? {
+    nombre: "Cumplimiento del Plan de Capacitación",
+    objetivo: "Medir el grado de cumplimiento del plan de capacitaciones y/o actividades de formación programadas, con el fin de asegurar el desarrollo de competencias del personal conforme a los requerimientos organizacionales.",
+    formula: "(Número de capacitaciones ejecutadas / Número de capacitaciones programadas en el período) × 100",
+    meta: "≥ 80 %", frecuenciaMedicion: "Mensual", frecuenciaAnalisis: "Mensual",
+    fuente: "Plan de formación", cargos: "Gerencia · Líderes",
+    responsable: "Líder Senior de Gestión Humana",
+    numerador: ejecutadasPeriodo, denominador: programadasPeriodo,
+    labelNum: "Ejecutadas en el período", labelDen: "Programadas en el período",
+  } : {
+    nombre: "Eficacia de la Capacitación",
+    objetivo: "Medir el porcentaje de capacitaciones que cumplen con los criterios de eficacia definidos por la organización, con el fin de evaluar la efectividad del plan de formación y optimizar las acciones de desarrollo implementadas.",
+    formula: "(Número de capacitaciones que cumplen los criterios de eficacia / Total de capacitaciones evaluadas) × 100",
+    meta: "≥ 75 %", frecuenciaMedicion: "Trimestral", frecuenciaAnalisis: "Trimestral",
+    fuente: "Evaluaciones post capacitación · Encuestas · Resultados · Informes de seguimiento",
+    cargos: "Gerencia", responsable: "Líder Senior de Gestión Humana",
+    numerador: eficaces, denominador: evaluadas.length,
+    labelNum: "Capacitaciones eficaces", labelDen: "Total evaluadas",
+  };
+
+  // Cargar registros cuando cambia empresa
+  useEffect(()=>{ if(empresaId !== undefined) cargarRegistros(`${MESES[mesPeriodo]} ${anioPeriodo}`); },[empresaId, mesPeriodo, anioPeriodo]);
+
+  const cargarRegistros = async (periodoOverride) => {
+    try {
+      const nombreInd = isCumplimiento ? "cumplimiento" : "eficacia";
+      const empFilter = empresaId ? `&empresa_id=eq.${empresaId}` : `&empresa_id=is.null`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores?indicador=eq.${nombreInd}${empFilter}&order=created_at.desc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setRegistros(Array.isArray(data) ? data : []);
+      const periodoBuscar = periodoOverride || (isCumplimiento ? `${MESES[mesPeriodo]} ${anioPeriodo}` : periodoKey);
+      const actual = (Array.isArray(data)?data:[]).find(r=>r.periodo===periodoBuscar);
+      if(actual) { setRegistroActual(actual); setAnalisis(actual.analisis||""); setAcciones(actual.acciones||""); }
+      else { setRegistroActual(null); setAnalisis(""); setAcciones(""); }
+    } catch(e) { console.error(e); }
+  };
+
+  const guardarRegistro = async () => {
+    if(!empresaId) { alert("Selecciona una empresa antes de guardar."); return; }
+    setGuardando(true);
+    const nombreInd = isCumplimiento ? "cumplimiento" : "eficacia";
+    const periodoPeriodo = isCumplimiento ? `${MESES[mesPeriodo]} ${anioPeriodo}` : periodoKey;
+    const payload = {
+      indicador: nombreInd, periodo: periodoPeriodo, empresa_id: empresaId,
+      resultado, numerador: fichaData.numerador, denominador: fichaData.denominador,
+      analisis, acciones, updated_at: new Date().toISOString()
+    };
+    try {
+      // Find record for THIS specific period
+      const registroPeriodo = registros.find(r=>r.periodo===periodoPeriodo && r.empresa_id===empresaId);
+      if(registroPeriodo) {
+        const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores?id=eq.${registroPeriodo.id}`, {
+          method: "PATCH",
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "return=representation" },
+          body: JSON.stringify(payload)
+        });
+        if(!patchRes.ok) { const t = await patchRes.text(); throw new Error("PATCH falló: " + t); }
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/registros_indicadores`, {
+          method: "POST",
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "return=representation" },
+          body: JSON.stringify(payload)
+        });
+        const txt = await res.text();
+        if(!res.ok) throw new Error("POST falló: " + txt);
+        const data = txt ? JSON.parse(txt) : [];
+        if(Array.isArray(data)&&data[0]) setRegistroActual(data[0]);
+      }
+      setGuardadoOk(true);
+      setTimeout(()=>setGuardadoOk(false), 2500);
+      cargarRegistros(isCumplimiento ? `${MESES[mesPeriodo]} ${anioPeriodo}` : periodoKey);
+    } catch(e) { 
+      console.error(e); 
+      alert("Error al guardar: " + e.message);
+    }
+    setGuardando(false);
+  };
+
+  const generarAnalisis = async () => {
+    if(!empresaId) { alert("Selecciona una empresa antes de generar el análisis."); return; }
+    setGenerando(true);
+    const ejemplos = isCumplimiento ? `
+Ejemplos del tono y estilo esperado (para la empresa ${empNombre}):
+- Sin ejecución: "Durante el mes de [mes] no se programaron ni ejecutaron capacitaciones en [empresa], debido a que el área se encontraba realizando el diagnóstico de necesidades de formación."
+- 100%: "Durante el mes de [mes] se programaron [N] formaciones en [empresa], las cuales fueron ejecutadas en su totalidad, alcanzando un cumplimiento del 100%."
+- Parcial: "Durante el mes de [mes] se ejecutaron [N] de las [M] capacitaciones programadas en [empresa], alcanzando un cumplimiento del [X]%."` : "";
+
+    const prompt = `Eres analista de gestión humana. Genera un análisis profesional y natural (máximo 4 oraciones) para el indicador "${fichaData.nombre}" en la empresa ${empNombre}:
+- Período: ${periodoKey}
+- Resultado: ${fichaData.denominador > 0 ? resultado+"%" : "Sin datos"}
+- Meta: ${meta}%
+- Estado: ${fichaData.denominador > 0 ? (cumpleMeta ? "CUMPLE" : "NO cumple") : "Sin datos"}
+- Numerador: ${fichaData.numerador} ${fichaData.labelNum.toLowerCase()}
+- Denominador: ${fichaData.denominador} ${fichaData.labelDen.toLowerCase()}
+${ejemplos}
+Escribe SOLO el análisis en español, párrafo corrido, sin títulos. Tono profesional pero natural.
+Luego en nueva línea escribe "ACCIONES:" seguido de 1-2 acciones concretas.`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
+      });
+      const data = await res.json();
+      const texto = data.content?.[0]?.text || "";
+      const partes = texto.split("ACCIONES:");
+      setAnalisis(partes[0].trim());
+      setAcciones(partes[1]?.trim() || "");
+      setEditandoAnalisis(false); setEditandoAcciones(false);
+    } catch(e) { setAnalisis("No se pudo generar el análisis. Puedes escribirlo manualmente."); }
+    setGenerando(false);
+  };
+
+  const colorRes = resultado >= meta ? "#c9a84c" : resultado >= meta*0.6 ? "#d97706" : "#dc2626";
+  const bgRes = resultado >= meta ? "#fdf9f0" : resultado >= meta*0.6 ? "#fffbeb" : "#fef2f2";
+
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)"}}>
+      <div style={{maxWidth:"860px",margin:"0 auto",padding:"32px"}}>
+
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",gap:"14px",marginBottom:"28px",flexWrap:"wrap"}}>
+          <button type="button" onClick={onClose} style={{display:"flex",alignItems:"center",gap:"6px",background:"none",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"7px 14px",fontSize:"13px",color:"var(--text2)",cursor:"pointer"}}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            Volver
+          </button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:"10px",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"2px"}}>Ficha técnica · {fichaData.frecuenciaMedicion}</div>
+            <h2 style={{fontSize:"20px",fontWeight:"700",color:"var(--text)",fontFamily:"Fraunces,serif"}}>{fichaData.nombre}</h2>
+          </div>
+          <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
+            {guardadoOk && <span style={{fontSize:"12px",color:"#059669",fontWeight:"500"}}>✓ Guardado</span>}
+            <button type="button" onClick={guardarRegistro} disabled={guardando||!empresaId} style={{fontSize:"12px",padding:"7px 16px",border:"none",borderRadius:"8px",background:"#1a1714",color:"white",cursor:"pointer",fontWeight:"500",opacity:(guardando||!empresaId)?0.45:1}}>
+              {guardando ? "Guardando…" : `Guardar ${isCumplimiento ? MESES[mesPeriodo]+" "+anioPeriodo : periodoKey}`}
+            </button>
+          </div>
+        </div>
+
+        {/* Selector de empresa — prominente */}
+        <div style={{background:"var(--surface)",border:"1px solid #c9a84c40",borderRadius:"12px",padding:"18px 20px",marginBottom:"20px"}}>
+          <div style={{fontSize:"10px",fontWeight:"600",color:"#a8893a",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"10px"}}>Empresa a analizar</div>
+          <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+            {empresas.map(e=>(
+              <button key={e.id} type="button" onClick={()=>setEmpresaId(e.id)}
+                style={{padding:"8px 18px",borderRadius:"8px",fontSize:"13px",fontWeight:"500",cursor:"pointer",border:"0.5px solid",
+                  borderColor:empresaId===e.id?"#c9a84c":"var(--border)",
+                  background:empresaId===e.id?"#fdf9f0":"var(--surface)",
+                  color:empresaId===e.id?"#a8893a":"var(--text2)"}}>
+                {e.nombre.split(" ").slice(0,2).join(" ")}
+              </button>
+            ))}
+          </div>
+          {!empresaId && <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"10px"}}>Selecciona una empresa para ver su resultado, generar el análisis y guardar el registro.</div>}
+        </div>
+        {isCumplimiento && empresaId && (
+          <div style={{marginTop:"12px",display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}}>
+            <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text2)"}}>Período a analizar:</div>
+            <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+              {MESES.map((mes,i)=>{
+                const esFuturo = i > hoy.getMonth() && anioPeriodo >= hoy.getFullYear();
+                if(esFuturo) return null;
+                return (
+                  <button key={i} type="button" onClick={()=>{ setMesPeriodo(i); }}
+                    style={{padding:"4px 12px",borderRadius:"6px",fontSize:"12px",cursor:"pointer",border:"0.5px solid",
+                      borderColor:mesPeriodo===i?"#c9a84c":"var(--border)",
+                      background:mesPeriodo===i?"#fdf9f0":"var(--surface)",
+                      color:mesPeriodo===i?"#a8893a":"var(--text2)",fontWeight:mesPeriodo===i?"600":"400"}}>
+                    {mes.slice(0,3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Resultado */}
+        <div style={{background:empresaId?bgRes:"var(--surface2)",border:`1px solid ${empresaId?colorRes+"25":"var(--border)"}`,borderRadius:"14px",padding:"22px 26px",marginBottom:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"16px"}}>
+          <div>
+            <div style={{fontSize:"10px",fontWeight:"600",color:empresaId?colorRes:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"4px"}}>
+              {empresaId ? `Resultado · ${periodoKey} · ${empNombre.split(" ").slice(0,2).join(" ")}` : `Resultado · ${isCumplimiento ? MESES[mesPeriodo]+" "+anioPeriodo : periodoKey}`}
+            </div>
+            <div style={{fontFamily:"Fraunces,serif",fontSize:"52px",fontWeight:"700",color:empresaId?colorRes:"var(--text3)",lineHeight:"1"}}>
+              {empresaId ? (fichaData.denominador > 0 ? resultado+"%" : "—") : "—"}
+            </div>
+            <div style={{fontSize:"13px",color:"var(--text2)",marginTop:"6px"}}>
+              {empresaId ? `${fichaData.numerador} de ${fichaData.denominador} · Meta: ${fichaData.meta} · ${periodoKeyCalc}` : "Selecciona una empresa para ver el resultado"}
+            </div>
+          </div>
+          {empresaId && (
+            <span style={{display:"inline-block",background:cumpleMeta&&fichaData.denominador>0?"#ecfdf5":"#fef2f2",color:cumpleMeta&&fichaData.denominador>0?"#065f46":"#991b1b",fontSize:"12px",fontWeight:"600",padding:"6px 16px",borderRadius:"20px"}}>
+              {fichaData.denominador > 0 ? (cumpleMeta ? "✓ Cumple la meta" : "✗ Por debajo de la meta") : "Sin datos aún"}
+            </span>
+          )}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"16px"}}>
+          {/* Ficha técnica */}
+          <div style={{background:"var(--surface)",border:"0.5px solid var(--border)",borderRadius:"12px",padding:"18px"}}>
+            <div style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"12px"}}>Ficha técnica</div>
+            {[
+              {l:"Objetivo",v:fichaData.objetivo},{l:"Fórmula",v:fichaData.formula},
+              {l:"Meta",v:fichaData.meta},{l:"Frecuencia medición",v:fichaData.frecuenciaMedicion},
+              {l:"Frecuencia análisis",v:fichaData.frecuenciaAnalisis},{l:"Fuente",v:fichaData.fuente},
+              {l:"Cargos",v:fichaData.cargos},{l:"Responsable",v:fichaData.responsable},
+            ].map((f,i)=>(
+              <div key={i} style={{padding:"7px 0",borderBottom:"0.5px solid var(--border)"}}>
+                <div style={{fontSize:"9px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"2px"}}>{f.l}</div>
+                <div style={{fontSize:"12px",color:"var(--text)",lineHeight:"1.5"}}>{f.v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Cálculo + histórico rápido */}
+          <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+            {registros.length > 0 && (
+              <div style={{background:"var(--surface)",border:"0.5px solid var(--border)",borderRadius:"12px",padding:"18px"}}>
+                <div style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"10px"}}>Histórico · {empNombre.split(" ")[0]}</div>
+                {registros.slice(0,5).map((r,i)=>{
+                  const c = r.denominador===0 ? "var(--text3)" : r.resultado >= meta ? "#c9a84c" : r.resultado >= meta*0.6 ? "#d97706" : "#dc2626";
+                  return (
+                    <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 8px",background:"var(--surface2)",borderRadius:"7px",marginBottom:"5px"}}>
+                      <span style={{fontSize:"12px",color:"var(--text2)"}}>{r.periodo}</span>
+                      <span style={{fontSize:"13px",fontWeight:"700",color:c,fontFamily:"Fraunces,serif"}}>{r.resultado !== null ? r.resultado+"%" : "—"}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Análisis */}
+        <div style={{background:"var(--surface)",border:"0.5px solid var(--border)",borderRadius:"12px",padding:"20px",marginBottom:"14px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px",flexWrap:"wrap",gap:"10px"}}>
+            <div style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em"}}>
+              Análisis · {periodoKey}{empresaId ? ` · ${empNombre.split(" ")[0]}` : ""}
+            </div>
+            <div style={{display:"flex",gap:"8px"}}>
+              {analisis && !editandoAnalisis && <button type="button" onClick={()=>setEditandoAnalisis(true)} style={{fontSize:"12px",padding:"5px 12px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"none",color:"var(--text2)",cursor:"pointer"}}>Editar</button>}
+              {editandoAnalisis && <button type="button" onClick={()=>setEditandoAnalisis(false)} style={{fontSize:"12px",padding:"5px 12px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"#1a1714",color:"white",cursor:"pointer"}}>Listo</button>}
+              <button type="button" onClick={generarAnalisis} disabled={generando||!empresaId} style={{fontSize:"12px",padding:"5px 14px",border:"none",borderRadius:"7px",background:"#c9a84c",color:"#1a1714",cursor:"pointer",fontWeight:"600",opacity:(generando||!empresaId)?0.5:1}}>
+                {generando ? "Generando…" : analisis ? "Regenerar ✦" : "Generar análisis ✦"}
+              </button>
+            </div>
+          </div>
+          {!empresaId && <div style={{textAlign:"center",padding:"20px",color:"var(--text3)",fontSize:"13px"}}>Selecciona una empresa para generar o ver el análisis de este período.</div>}
+          {empresaId && !analisis && !generando && (
+            <div style={{textAlign:"center",padding:"24px"}}>
+              <div style={{fontSize:"13px",color:"var(--text2)",marginBottom:"14px"}}>
+                Los datos del período están listos. Haz clic en <strong>Generar análisis ✦</strong> para crear el análisis automáticamente con IA.
+              </div>
+              <button type="button" onClick={generarAnalisis} style={{fontSize:"13px",padding:"9px 22px",border:"none",borderRadius:"8px",background:"#c9a84c",color:"#1a1714",cursor:"pointer",fontWeight:"600"}}>
+                Generar análisis ✦
+              </button>
+            </div>
+          )}
+          {generando && <div style={{textAlign:"center",padding:"24px",color:"var(--text3)",fontSize:"13px"}}>Analizando los datos…</div>}
+          {analisis && !generando && (
+            editandoAnalisis
+              ? <textarea value={analisis} onChange={e=>setAnalisis(e.target.value)} style={{width:"100%",minHeight:"100px",fontSize:"14px",lineHeight:"1.7",color:"var(--text)",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"12px",background:"var(--surface2)",fontFamily:"var(--font-sans)"}}/>
+              : <p style={{fontSize:"14px",lineHeight:"1.8",color:"var(--text)"}}>{analisis}</p>
+          )}
+        </div>
+
+        {/* Acciones */}
+        {analisis && (
+          <div style={{background:"var(--surface)",border:"0.5px solid var(--border)",borderRadius:"12px",padding:"20px",marginBottom:"14px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px"}}>
+              <div style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Acciones · {periodoKey}{empresaId?` · ${empNombre.split(" ")[0]}`:""}</div>
+              <div style={{display:"flex",gap:"8px"}}>
+                {acciones && !editandoAcciones && <button type="button" onClick={()=>setEditandoAcciones(true)} style={{fontSize:"12px",padding:"5px 12px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"none",color:"var(--text2)",cursor:"pointer"}}>Editar</button>}
+                {editandoAcciones && <button type="button" onClick={()=>setEditandoAcciones(false)} style={{fontSize:"12px",padding:"5px 12px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"#1a1714",color:"white",cursor:"pointer"}}>Listo</button>}
+              </div>
+            </div>
+            {acciones
+              ? editandoAcciones
+                ? <textarea value={acciones} onChange={e=>setAcciones(e.target.value)} style={{width:"100%",minHeight:"80px",fontSize:"14px",lineHeight:"1.7",color:"var(--text)",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"12px",background:"var(--surface2)",fontFamily:"var(--font-sans)"}}/>
+                : <p style={{fontSize:"14px",lineHeight:"1.8",color:"var(--text)"}}>{acciones}</p>
+              : <div style={{fontSize:"13px",color:"var(--text3)"}}>Las acciones se generarán junto con el análisis.</div>
+            }
+          </div>
+        )}
+
+        {/* Registros históricos expandibles */}
+        {registros.length > 0 && (
+          <RegistrosHistoricos registros={registros} meta={meta} periodoKey={periodoKey} empNombre={empNombre} token={token} onActualizar={cargarRegistros}/>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+
+function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
+  const total = caps.length;
+  const ejecutadas = caps.filter(c=>c.estado==="Ejecutada").length;
+  const enProceso = caps.filter(c=>c.estado==="En proceso").length;
+  const sinIniciar = caps.filter(c=>c.estado==="Sin iniciar").length;
+
+  // Indicador 1: % cumplimiento = ejecutadas / programadas en el período × 100
+  // % cumplimiento ACUMULADO ANUAL = ejecutadas / programadas en el año hasta hoy
+  const hoyDate = new Date();
+  const anioActual = hoyDate.getFullYear();
+  const programadasHastaHoy = caps.filter(c=>{
+    if(!c.mes_programado) return false;
+    const d = new Date(c.mes_programado);
+    return d.getFullYear() === anioActual && d <= hoyDate;
+  }).length;
+  const conMesProg = programadasHastaHoy > 0 ? programadasHastaHoy : caps.filter(c=>c.mes_programado).length;
+  const pctCumplimiento = conMesProg > 0 ? Math.round((ejecutadas/conMesProg)*100) : 0;
+
+  // Indicador 2: % eficacia = marcadas eficaz / total ejecutadas con evaluación
+  const evaluadas = caps.filter(c=>c.estado==="Ejecutada" && c.eficacia_fecha);
+  const eficaces = evaluadas.filter(c=>c.fue_eficaz===true).length;
+  const pctEficacia = evaluadas.length > 0 ? Math.round((eficaces/evaluadas.length)*100) : 0;
+
+  // Datos por mes
+  const mesesData = MESES.map((mes, i) => {
+    const programadas = caps.filter(c=>{
+      if(!c.mes_programado) return false;
+      const d = new Date(c.mes_programado);
+      return d.getMonth()===i && d.getFullYear()===2026;
+    });
+    const ejec = programadas.filter(c=>c.estado==="Ejecutada");
+    const pct = programadas.length > 0 ? Math.round((ejec.length/programadas.length)*100) : null;
+    return { mes: mes.slice(0,3), programadas: programadas.length, ejecutadas: ejec.length, pct };
+  });
+
+  const maxBar = Math.max(...mesesData.map(m=>m.programadas), 1);
+
+  if(fichaActiva) return <FichaIndicador tipo={fichaActiva} caps={caps} empresas={empresas} token={window.__aura_token||''} onClose={()=>setFichaActiva(null)}/>;
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <h2 style={{fontSize:"24px",fontWeight:"700"}}>Inicio</h2>
+        <p style={{color:"var(--text2)",marginTop:"4px"}}>Plan de formación 2026</p>
+      </div>
+
+      {/* Tarjetas de resumen */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"14px",marginBottom:"24px"}}>
+        {[
+          {num:total,label:"Total capacitaciones",color:"var(--text)"},
+          {num:ejecutadas,label:"Ejecutadas",color:"#059669"},
+          {num:enProceso,label:"En proceso",color:"#d97706"},
+          {num:sinIniciar,label:"Sin iniciar",color:"#94a3b8"},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-num" style={{color:s.color}}>{s.num}</div>
+            <div className="stat-label">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Indicadores principales */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"24px"}}>
+        <div className="card" style={{padding:"20px",cursor:"pointer",transition:"transform 0.12s"}} onClick={()=>setFichaActiva("cumplimiento")} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
+            <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>% Cumplimiento acumulado {new Date().getFullYear()}</div>
+            <span style={{fontSize:"10px",color:"var(--accent)",letterSpacing:"0.04em"}}>Ver ficha →</span>
+          </div>
+          <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
+            <span style={{fontFamily:"Fraunces,serif",fontSize:"40px",fontWeight:"700",color:pctCumplimiento>=80?"#c9a84c":pctCumplimiento>=50?"#d97706":"#dc2626"}}>{pctCumplimiento}%</span>
+            <span style={{fontSize:"12px",color:"var(--text3)"}}>meta: 80%</span>
+          </div>
+          <div className="progress-bar-wrap" style={{marginBottom:"8px"}}><div className="progress-bar-fill" style={{width:`${Math.min(pctCumplimiento,100)}%`,background:pctCumplimiento>=80?"#c9a84c":pctCumplimiento>=50?"#d97706":"#dc2626"}}/></div>
+          <div style={{fontSize:"12px",color:"var(--text2)"}}>
+            {ejecutadas} ejecutadas de {conMesProg} programadas en el período
+          </div>
+          <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"4px",fontStyle:"italic"}}>
+            (Ejecutadas / Programadas en el período) × 100
+          </div>
+        </div>
+
+        <div className="card" style={{padding:"20px",cursor:"pointer",transition:"transform 0.12s"}} onClick={()=>setFichaActiva("eficacia")} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
+            <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>% Eficacia de capacitaciones</div>
+            <span style={{fontSize:"10px",color:"var(--accent)",letterSpacing:"0.04em"}}>Ver ficha →</span>
+          </div>
+          <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
+            <span style={{fontFamily:"Fraunces,serif",fontSize:"40px",fontWeight:"700",color:pctEficacia>=75?"#c9a84c":pctEficacia>=50?"#d97706":"#dc2626"}}>{evaluadas.length>0?pctEficacia+"%":"—"}</span>
+            <span style={{fontSize:"12px",color:"var(--text3)"}}>meta: 75%</span>
+          </div>
+          {evaluadas.length>0 && <div className="progress-bar-wrap" style={{marginBottom:"8px"}}><div className="progress-bar-fill" style={{width:`${pctEficacia}%`,background:pctEficacia>=75?"#c9a84c":pctEficacia>=50?"#d97706":"#dc2626"}}/></div>}
+          <div style={{fontSize:"12px",color:"var(--text2)"}}>
+            {evaluadas.length>0 ? `${eficaces} eficaces de ${evaluadas.length} evaluadas` : "Aún no hay capacitaciones evaluadas"}
+          </div>
+          <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"4px",fontStyle:"italic"}}>
+            (Marcadas eficaz / Total evaluadas) × 100
+          </div>
+        </div>
+      </div>
+
+      {/* Cumplimiento mensual */}
+      <div className="card" style={{padding:"24px",marginBottom:"20px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"10px"}}>
+          <div>
+            <div style={{fontSize:"12px",fontWeight:"600",color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Cumplimiento mensual {new Date().getFullYear()}</div>
+            <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>Programadas vs ejecutadas · mes a mes</div>
+          </div>
+
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:"10px"}}>
+          {mesesData.map((m,i)=>{
+            if(i > new Date().getMonth()) return null;
+            const pct = m.programadas > 0 ? Math.round((m.ejecutadas/m.programadas)*100) : null;
+            const sinDatos = m.programadas === 0;
+            const cumple = pct !== null && pct >= 80;
+            const color = sinDatos ? "var(--text3)" : cumple ? "#c9a84c" : pct >= 50 ? "#d97706" : "#dc2626";
+            const bg = sinDatos ? "var(--surface2)" : cumple ? "#fdf9f0" : pct >= 50 ? "#fffbeb" : "#fef2f2";
+            const borderColor = sinDatos ? "var(--border)" : cumple ? "#c9a84c40" : pct >= 50 ? "#d9770640" : "#dc262640";
+            const isCurrent = i === new Date().getMonth();
+            return (
+              <div key={i} style={{background:bg,borderRadius:"10px",padding:"14px 14px 12px",border:`1px solid ${borderColor}`,position:"relative"}}>
+                {isCurrent && <div style={{position:"absolute",top:"8px",right:"8px",width:"6px",height:"6px",borderRadius:"50%",background:"#c9a84c"}}/>}
+                <div style={{fontSize:"10px",fontWeight:"700",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"8px"}}>{MESES[i].slice(0,3)}</div>
+                <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color,lineHeight:"1",marginBottom:"6px"}}>
+                  {sinDatos ? "—" : pct+"%"}
+                </div>
+                <div style={{fontSize:"10px",color:"var(--text2)",marginBottom:"8px"}}>
+                  {sinDatos ? "Sin programación" : `${m.ejecutadas} de ${m.programadas}`}
+                </div>
+                <div style={{height:"3px",background:"rgba(0,0,0,0.06)",borderRadius:"2px",overflow:"hidden"}}>
+                  <div style={{height:"100%",width:sinDatos?"0%":`${Math.min(pct,100)}%`,background:color,borderRadius:"2px",transition:"width 0.4s"}}/>
+                </div>
+                <div style={{marginTop:"8px"}}>
+                  <span style={{fontSize:"10px",fontWeight:"600",color,padding:"2px 8px",background:"rgba(255,255,255,0.6)",borderRadius:"20px"}}>
+                    {sinDatos ? "Sin datos" : cumple ? "✓ Cumple" : "✗ No cumple"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Próximas capacitaciones - 2 meses */}
+      {(()=>{
+        const hoy = new Date();
+        const mes1 = hoy.getMonth();
+        const mes2 = (hoy.getMonth()+1)%12;
+        const anio = hoy.getFullYear();
+        const proximas = caps.filter(c=>{
+          if(!c.mes_programado || c.estado==="Ejecutada") return false;
+          const d = new Date(c.mes_programado);
+          return d.getFullYear()===anio && (d.getMonth()===mes1 || d.getMonth()===mes2);
+        }).sort((a,b)=>new Date(a.mes_programado)-new Date(b.mes_programado));
+        if(proximas.length===0) return null;
+        return (
+          <div className="card" style={{marginBottom:"20px"}}>
+            <div style={{padding:"16px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:"12px",fontWeight:"600",color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.05em"}}>Próximas capacitaciones</div>
+                <div style={{fontSize:"12px",color:"var(--text3)",marginTop:"2px"}}>{MESES[mes1]} y {MESES[mes2]} · {proximas.length} pendientes</div>
+              </div>
+              <button type="button" onClick={()=>{
+                const lineas = proximas.map(c=>{
+                  const emp = empresas.find(e=>e.id===c.empresa_id);
+                  const d = new Date(c.mes_programado);
+                  return `• ${MESES[d.getMonth()]} | ${c.nombre} | Responsable: ${c.responsable||"—"} | Dirigido a: ${c.dirigido_a||"—"} [${emp?.codigo||""}]`;
+                }).join("\n");
+                const texto = `Plan de Formación 2026 — Próximas capacitaciones\n\n${lineas}\n\nPor favor confirmar disponibilidad y coordinar la logística correspondiente.`;
+                navigator.clipboard.writeText(texto).then(()=>alert("✓ Texto copiado al portapapeles. Pégalo en tu correo.")).catch(()=>alert(texto));
+              }} style={{background:"#c9a84c",color:"#0d0d0d",border:"none",borderRadius:"8px",padding:"7px 14px",fontSize:"12px",fontWeight:"600",cursor:"pointer"}}>
+                Copiar para correo
+              </button>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr>
+                  <th>Mes</th><th>Capacitación</th><th>Empresa</th><th>Responsable</th><th>Dirigido a</th><th>Estado</th>
+                </tr></thead>
+                <tbody>
+                  {proximas.map(c=>{
+                    const emp = empresas.find(e=>e.id===c.empresa_id);
+                    const d = new Date(c.mes_programado);
+                    return (
+                      <tr key={c.id}>
+                        <td style={{fontWeight:"600",color:"#c9a84c",whiteSpace:"nowrap"}}>{MESES[d.getMonth()].slice(0,3)}</td>
+                        <td style={{maxWidth:"200px"}}>
+                          <div style={{fontWeight:"500",fontSize:"13px",lineHeight:"1.3"}}>{c.nombre.length>55?c.nombre.slice(0,55)+"…":c.nombre}</div>
+                          {c.componente && <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"1px"}}>{c.componente.split("(")[0].trim()}</div>}
+                        </td>
+                        <td><span style={{fontSize:"11px",background:"#fdf8ec",color:"#6b4e1a",padding:"2px 7px",borderRadius:"20px",fontWeight:"600"}}>{emp?.codigo||"—"}</span></td>
+                        <td style={{fontSize:"13px"}}>{c.responsable||"—"}</td>
+                        <td style={{fontSize:"12px",color:"var(--text2)",maxWidth:"160px"}}>{c.dirigido_a?c.dirigido_a.slice(0,50)+(c.dirigido_a.length>50?"…":""):"—"}</td>
+                        <td><span className="badge" style={{background:estadoBg[c.estado],color:estadoColor[c.estado]}}>{c.estado}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+      {/* Tabla resumen por mes */}    </div>
+  );
+}
+// ── FORMULARIO ──
+function CapForm({ cap, empresas, token, onSave, onClose }) {
+  const isNew = !cap?.id;
+  const blank = {numero:null,empresa_id:empresas[0]?.id||"",nombre:"",objetivo:"",linea:"",componente:"",tipo_formacion:"",categoria:"Interna",dirigido_a:"",responsable:"",intensidad:"",estado:"Sin iniciar",porcentaje_avance:0,mes_programado:"",fecha_ejecucion:"",trabajadores_programados:"",trabajadores_asistieron:"",costo:0,fuente_recursos:[],seguimiento:"",eficacia_fecha:"",eficacia_metodo:"",eficacia_responsable:"",fue_eficaz:null};
+  const [form, setForm] = useState(cap ? {...blank,...cap, fuente_recursos:cap.fuente_recursos||[], mes_programado:cap.mes_programado||"", fecha_ejecucion:cap.fecha_ejecucion||"", eficacia_fecha:cap.eficacia_fecha||""} : blank);
+  const [evidencias, setEvidencias] = useState([]);
+  const [existingEvid, setExistingEvid] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(()=>{
+    if(cap?.id) api(`evidencias?capacitacion_id=eq.${cap.id}&select=*`,"",token).then(r=>setExistingEvid(r||[])).catch(()=>{});
+  },[cap?.id]);
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const toggleFuente = f => { const arr=form.fuente_recursos||[]; set("fuente_recursos", arr.includes(f)?arr.filter(x=>x!==f):[...arr,f]); };
+
+  const save = async () => {
+    setErr(""); setLoading(true);
+    try {
+      if(!form.nombre.trim()) throw new Error("El nombre es obligatorio.");
+      // Eficacia es opcional al ejecutar — se completa al cierre del mes
+      const payload = {...form};
+      if(!payload.mes_programado) payload.mes_programado=null;
+      if(!payload.fecha_ejecucion) payload.fecha_ejecucion=null;
+      if(!payload.eficacia_fecha) payload.eficacia_fecha=null;
+      payload.updated_at = new Date().toISOString();
+
+      let capId = cap?.id;
+      if(isNew){
+        const [created] = await api("capacitaciones",{method:"POST",body:JSON.stringify(payload)},token);
+        capId = created.id;
+      } else {
+        await api(`capacitaciones?id=eq.${cap.id}`,{method:"PATCH",body:JSON.stringify(payload)},token);
+      }
+
+      for(const ev of evidencias){
+        const path = `${capId}/${Date.now()}_${ev.file.name}`;
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/evidencias/${path}`,{
+          method:"POST", headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`,"Content-Type":ev.file.type}, body:ev.file
+        });
+        if(uploadRes.ok){
+          const url = `${SUPABASE_URL}/storage/v1/object/evidencias/${path}`;
+          await api("evidencias",{method:"POST",body:JSON.stringify({capacitacion_id:capId,tipo:ev.tipo,nombre_archivo:ev.file.name,url})},token);
+        }
+      }
+      onSave();
+    } catch(e){ setErr(e.message); }
+    finally{ setLoading(false); }
+  };
+
+  const deleteEvid = async id => {
+    if(!confirm("¿Eliminar esta evidencia?")) return;
+    await api(`evidencias?id=eq.${id}`,{method:"DELETE",prefer:"return=minimal"},token);
+    setExistingEvid(p=>p.filter(e=>e.id!==id));
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nueva capacitación":"Editar capacitación"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          <div className="grid2">
+            <div className="field"><label className="label">Empresa *</label>
+              <select value={form.empresa_id} onChange={e=>set("empresa_id",e.target.value)}>
+                {empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="field"><label className="label">Nombre de la capacitación *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej: Riesgo químico"/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Línea</label>
+              <select value={form.linea} onChange={e=>set("linea",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {LINEAS.map(l=><option key={l} value={l}>{l.split(":")[0]}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Componente</label>
+              <select value={form.componente} onChange={e=>set("componente",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {COMPONENTES.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid3">
+            <div className="field"><label className="label">Tipo de formación</label>
+              <select value={form.tipo_formacion} onChange={e=>set("tipo_formacion",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Categoría</label>
+              <select value={form.categoria} onChange={e=>set("categoria",e.target.value)}><option>Interna</option><option>Externa</option></select>
+            </div>
+            <div className="field"><label className="label">Intensidad (horas)</label><input value={form.intensidad} onChange={e=>set("intensidad",e.target.value)} placeholder="Ej: 8 horas"/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Dirigido a</label><input value={form.dirigido_a} onChange={e=>set("dirigido_a",e.target.value)} placeholder="Ej: Todo el personal"/></div>
+            <div className="field"><label className="label">Responsable</label><input value={form.responsable} onChange={e=>set("responsable",e.target.value)} placeholder="Nombre del responsable"/></div>
+          </div>
+          <div className="field"><label className="label">Objetivo (opcional)</label><textarea value={form.objetivo} onChange={e=>set("objetivo",e.target.value)} placeholder="Describe el objetivo…" rows={2}/></div>
+
+          <div className="section-title">Cronograma y asistencia</div>
+          <div className="grid3">
+            <div className="field"><label className="label">Estado</label>
+              <select value={form.estado} onChange={e=>set("estado",e.target.value)}>
+                {ESTADOS.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Mes programado</label><input type="date" value={form.mes_programado} onChange={e=>set("mes_programado",e.target.value)}/></div>
+            <div className="field"><label className="label">Fecha de ejecución</label><input type="date" value={form.fecha_ejecucion} onChange={e=>set("fecha_ejecucion",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Trabajadores programados</label><input type="number" value={form.trabajadores_programados} onChange={e=>set("trabajadores_programados",e.target.value)}/></div>
+            <div className="field"><label className="label">Trabajadores que asistieron</label><input type="number" value={form.trabajadores_asistieron} onChange={e=>set("trabajadores_asistieron",e.target.value)}/></div>
+          </div>
+          <div className="field"><label className="label">Seguimiento / notas</label><textarea value={form.seguimiento} onChange={e=>set("seguimiento",e.target.value)} placeholder="Observaciones…" rows={2}/></div>
+
+          <div className="section-title">Información financiera</div>
+          <div className="grid2">
+            <div className="field"><label className="label">Costo ($)</label><input type="number" value={form.costo} onChange={e=>set("costo",e.target.value)}/></div>
+            <div className="field"><label className="label">Fuente de recursos</label>
+              <div className="chip-group" style={{marginTop:"4px"}}>
+                {FUENTES.map(f=><button key={f} type="button" className={`chip${(form.fuente_recursos||[]).includes(f)?" active":""}`} onClick={()=>toggleFuente(f)}>{f}</button>)}
+              </div>
+            </div>
+          </div>
+
+          {form.estado==="Ejecutada" && <>
+            <div className="section-title">Eficacia <span style={{color:"var(--warn)"}}>*</span></div>
+            {(!form.eficacia_fecha||!form.eficacia_metodo||!form.eficacia_responsable) && <div className="alert" style={{background:"#eff6ff",border:"1px solid #93c5fd",color:"#1e40af",fontSize:"13px",marginBottom:"14px"}}>Puedes completar la eficacia al cierre del mes. Mientras tanto la capacitación queda marcada como <strong>Eficacia pendiente</strong>.</div>}
+            <div className="grid3">
+              <div className="field"><label className="label">Fecha de verificación *</label><input type="date" value={form.eficacia_fecha} onChange={e=>set("eficacia_fecha",e.target.value)}/></div>
+              <div className="field"><label className="label">Método de evaluación *</label><input value={form.eficacia_metodo} onChange={e=>set("eficacia_metodo",e.target.value)} placeholder="Ej: Evaluación de conocimientos"/></div>
+              <div className="field"><label className="label">Responsable medición *</label><input value={form.eficacia_responsable} onChange={e=>set("eficacia_responsable",e.target.value)} placeholder="Nombre"/></div>
+            </div>
+            <div className="field" style={{marginTop:"8px"}}>
+              <label style={{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer",padding:"12px 16px",background:form.fue_eficaz?"#fdf8ec":"var(--surface2)",border:"1px solid",borderColor:form.fue_eficaz?"#c9a84c":"var(--border)",borderRadius:"var(--radius)",transition:"all 0.15s"}}>
+                <input type="checkbox" checked={form.fue_eficaz===true} onChange={e=>set("fue_eficaz",e.target.checked?true:null)} style={{width:"18px",height:"18px",accentColor:"#2d5016",cursor:"pointer"}}/>
+                <span style={{fontSize:"14px",fontWeight:"500",color:form.fue_eficaz?"#6b4e1a":"var(--text2)"}}>
+                  {form.fue_eficaz ? "✓ Capacitación eficaz" : "¿Fue eficaz esta capacitación?"}
+                </span>
+              </label>
+            </div>
+          </>}
+
+          <div className="section-title">Evidencias</div>
+          {existingEvid.length>0 && <div style={{marginBottom:"12px"}}>
+            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"6px",fontWeight:"600"}}>Archivos cargados</div>
+            {existingEvid.map(ev=>(
+              <div key={ev.id} className="file-item">
+                <span style={{display:"flex",alignItems:"center",gap:"6px"}}>{Ico.file} {ev.nombre_archivo} <span style={{fontSize:"11px",color:"var(--text3)"}}>({ev.tipo})</span></span>
+                <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
+                  <a href={ev.url} target="_blank" rel="noreferrer" style={{fontSize:"12px",color:"var(--accent2)"}}>Ver</a>
+                  <button type="button" onClick={()=>deleteEvid(ev.id)} style={{background:"none",color:"var(--danger)",padding:"0"}}>{Ico.trash}</button>
+                </div>
+              </div>
+            ))}
+          </div>}
+          {TIPOS_EVIDENCIA.map(({key,label})=>{
+            const pending = evidencias.find(e=>e.tipo===key);
+            return (
+              <div key={key} style={{marginBottom:"10px"}}>
+                <label className="label">{label}</label>
+                <label className="upload-zone">
+                  <input type="file" style={{display:"none"}} onChange={e=>{ const f=e.target.files[0]; if(f) setEvidencias(p=>[...p.filter(x=>x.tipo!==key),{tipo:key,file:f}]); }} accept=".pdf,.png,.jpg,.jpeg,.pptx,.xlsx,.docx"/>
+                  {pending
+                    ? <div style={{fontSize:"13px",color:"var(--accent)"}}>{Ico.file} {pending.file.name}</div>
+                    : <div style={{color:"var(--text3)",fontSize:"13px"}}>{Ico.upload}<br/>Haz clic para subir {label.toLowerCase()}</div>}
+                </label>
+              </div>
+            );
+          })}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── LISTADO ──
+function Listado({ caps, empresas, token, onRefresh, isAdmin=true }) {
+  const [search, setSearch] = useState("");
+  const [filtEst, setFiltEst] = useState("");
+  const [mesesAbiertos, setMesesAbiertos] = useState({});
+  const [empresasAbiertas, setEmpresasAbiertas] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [evidCounts, setEvidCounts] = useState({});
+
+  useEffect(()=>{
+    const ejecutadas = caps.filter(c=>
+      c.estado==="Ejecutada" && c.eficacia_fecha && c.eficacia_metodo && c.eficacia_responsable
+    );
+    if(ejecutadas.length === 0) { setEvidCounts({}); return; }
+    const ids = ejecutadas.map(c=>`"${c.id}"`).join(',');
+    fetch(`${SUPABASE_URL}/rest/v1/evidencias?capacitacion_id=in.(${ids})&select=capacitacion_id`, {
+      headers:{ apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    }).then(r=>r.json()).then(data=>{
+      const counts = {};
+      (data||[]).forEach(e=>{ counts[e.capacitacion_id]=(counts[e.capacitacion_id]||0)+1; });
+      setEvidCounts(counts);
+    }).catch(()=>{});
+  },[caps]);
+
+  // Open all empresas by default
+  useEffect(()=>{
+    if(empresas.length > 0 && Object.keys(empresasAbiertas).length === 0) {
+      const initial = {};
+      empresas.forEach(e => initial[e.id] = true);
+      setEmpresasAbiertas(initial);
+    }
+  },[empresas]);
+
+  const toggleEmpresa = (id) => setEmpresasAbiertas(p=>({...p,[id]:!p[id]}));
+  const toggleMes = (key) => setMesesAbiertos(p=>{
+    const current = key in p ? p[key] : true;
+    return {...p,[key]:!current};
+  });
+
+  const deleteOne = async id => {
+    if(!confirm("¿Eliminar esta capacitación?")) return;
+    await api(`capacitaciones?id=eq.${id}`,{method:"DELETE",prefer:"return=minimal"},token);
+    onRefresh();
+  };
+
+  // Filter caps
+  const filtered = caps.filter(c=>{
+    const s = search.toLowerCase();
+    return (!s||c.nombre?.toLowerCase().includes(s)||c.responsable?.toLowerCase().includes(s))
+      && (!filtEst||c.estado===filtEst);
+  });
+
+  // Auto-number globally
+  const getNumero = (capId) => {
+    const sorted = [...caps].sort((a,b)=>(a.numero||999)-(b.numero||999));
+    const idx = sorted.findIndex(c=>c.id===capId);
+    return idx + 1;
+  };
+
+  // Group by empresa then by month
+  const grouped = empresas.map(emp => {
+    const empCaps = filtered.filter(c=>c.empresa_id===emp.id);
+    // Group by month
+    const byMonth = {};
+    const sinMes = [];
+    empCaps.forEach(c => {
+      if(!c.mes_programado) { sinMes.push(c); return; }
+      const d = new Date(c.mes_programado);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const label = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+      if(!byMonth[key]) byMonth[key] = { key, label, mes: d.getMonth(), anio: d.getFullYear(), caps: [] };
+      byMonth[key].caps.push(c);
+    });
+    const meses = Object.values(byMonth).sort((a,b)=>a.key.localeCompare(b.key));
+    if(sinMes.length > 0) meses.push({ key:"sin-mes", label:"Sin mes asignado", caps: sinMes });
+    return { emp, meses, total: empCaps.length };
+  }).filter(g => g.total > 0 || filtered.length === 0);
+
+  const estadoColor = {"Sin iniciar":"#94a3b8","En proceso":"#d97706","Ejecutada":"#059669"};
+  const estadoBg = {"Sin iniciar":"#f1f5f9","En proceso":"#fffbeb","Ejecutada":"#ecfdf5"};
+
+  let autoNum = 0;
+
+  return (
+    <div className="page">
+      <div className="page-header" style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:"12px"}}>
+        <div>
+          <h2 style={{fontSize:"24px",fontWeight:"700"}}>Capacitaciones</h2>
+          <p style={{color:"var(--text2)",marginTop:"4px"}}>{filtered.length} de {caps.length} registros</p>
+        </div>
+        {isAdmin && <button className="btn-primary" onClick={()=>setCreating(true)} style={{display:"flex",alignItems:"center",gap:"6px"}}>
+          {Ico.plus} Nueva capacitación
+        </button>}
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"24px"}}>
+        <div className="search-wrap" style={{flex:"1",minWidth:"200px",position:"relative"}}>
+          {Ico.search}
+          <input placeholder="Buscar por nombre o responsable…" value={search} onChange={e=>setSearch(e.target.value)}/>
+        </div>
+        <select value={filtEst} onChange={e=>setFiltEst(e.target.value)} style={{width:"auto",minWidth:"160px"}}>
+          <option value="">Todos los estados</option>
+          {ESTADOS.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+        <div style={{display:"flex",gap:"6px",marginLeft:"auto"}}>
+          <button type="button" onClick={()=>{
+            const keys = {};
+            empresas.forEach(emp => {
+              caps.filter(c=>c.empresa_id===emp.id).forEach(c=>{
+                if(!c.mes_programado) return;
+                const d = new Date(c.mes_programado);
+                const k = emp.id+"-"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+                keys[k] = true;
+              });
+            });
+            setMesesAbiertos(keys);
+          }} style={{fontSize:"12px",padding:"7px 14px",border:"0.5px solid var(--border)",borderRadius:"8px",background:"var(--surface)",color:"var(--text2)",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}>
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            Expandir meses
+          </button>
+          <button type="button" onClick={()=>{
+            const keys = {};
+            empresas.forEach(emp => {
+              caps.filter(c=>c.empresa_id===emp.id).forEach(c=>{
+                if(!c.mes_programado) return;
+                const d = new Date(c.mes_programado);
+                const k = emp.id+"-"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+                keys[k] = false;
+              });
+            });
+            setMesesAbiertos(keys);
+          }} style={{fontSize:"12px",padding:"7px 14px",border:"0.5px solid var(--border)",borderRadius:"8px",background:"var(--surface)",color:"var(--text2)",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}>
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7"/></svg>
+            Contraer meses
+          </button>
+        </div>
+      </div>
+
+      {/* Agrupado por empresa → mes */}
+      {grouped.map(({emp, meses}) => (
+        <div key={emp.id} style={{marginBottom:"28px"}}>
+          {/* Encabezado empresa */}
+          <div onClick={()=>toggleEmpresa(emp.id)}
+            style={{display:"flex",alignItems:"center",gap:"12px",padding:"12px 18px",
+              background:"#1a1714",borderRadius:"10px",cursor:"pointer",marginBottom:"2px",
+              userSelect:"none"}}>
+            <span style={{color:"#c9a84c",fontWeight:"700",fontSize:"13px",letterSpacing:"0.08em",textTransform:"uppercase"}}>
+              {emp.codigo}
+            </span>
+            <span style={{color:"#ffffff",fontWeight:"600",fontSize:"15px",flex:1,fontFamily:"Fraunces,serif"}}>{emp.nombre}</span>
+            <span style={{color:"#6b6560",fontSize:"12px"}}>{meses.reduce((a,m)=>a+m.caps.length,0)} capacitaciones</span>
+            <span style={{color:"#c9a84c",fontSize:"14px"}}>{empresasAbiertas[emp.id]?"▼":"▶"}</span>
+          </div>
+
+          {empresasAbiertas[emp.id] && (
+            <div style={{borderLeft:"2px solid #e8e0d0",marginLeft:"18px",paddingLeft:"0"}}>
+              {meses.map(({key, label, mes, caps: mesCaps}) => {
+                const ejecutadas = mesCaps.filter(c=>c.estado==="Ejecutada").length;
+                const pct = mesCaps.length > 0 ? Math.round((ejecutadas/mesCaps.length)*100) : 0;
+                const pctColor = pct>=80?"#c9a84c":pct>=50?"#d97706":"#dc2626";
+                const mesKey = emp.id+"-"+key;
+                const isOpen = mesKey in mesesAbiertos ? mesesAbiertos[mesKey] : true;
+                return (
+                  <div key={key} style={{marginBottom:"2px"}}>
+                    {/* Encabezado mes */}
+                    <div onClick={()=>toggleMes(mesKey)}
+                      style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 16px",
+                        background:"var(--surface)",borderBottom:"0.5px solid var(--border)",
+                        cursor:"pointer",userSelect:"none"}}>
+                      <span style={{fontSize:"13px",fontWeight:"600",color:"var(--text)",minWidth:"130px"}}>{label}</span>
+                      <span style={{fontSize:"11px",color:"var(--text3)"}}>{mesCaps.length} cap.</span>
+                      <span style={{fontSize:"11px",color:"var(--text3)"}}>{ejecutadas} ejecutadas</span>
+                      {mesCaps.length > 0 && (
+                        <div style={{display:"flex",alignItems:"center",gap:"6px",marginLeft:"4px"}}>
+                          <div style={{width:"60px",height:"4px",background:"var(--surface2)",borderRadius:"2px",overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${pct}%`,background:pctColor,borderRadius:"2px"}}/>
+                          </div>
+                          <span style={{fontSize:"11px",fontWeight:"600",color:pctColor}}>{pct}%</span>
+                        </div>
+                      )}
+                      <span style={{marginLeft:"auto",color:"var(--text3)",fontSize:"12px"}}>{isOpen?"▼":"▶"}</span>
+                    </div>
+
+                    {/* Capacitaciones del mes */}
+                    {isOpen && (
+                      <div style={{background:"var(--surface)"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead>
+                            <tr style={{background:"var(--surface2)"}}>
+                              {["#","Nombre","Tipo","Responsable","Dirigido a","Estado","Asistencia",""].map(h=>(
+                                <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",
+                                  padding:"7px 14px",borderBottom:"0.5px solid var(--border)",
+                                  textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mesCaps.map((c, idx) => {
+                              autoNum++;
+                              const faltaEficacia = c.estado==="Ejecutada" && (!c.eficacia_fecha||!c.eficacia_metodo||!c.eficacia_responsable);
+                              const faltaEvid = c.estado==="Ejecutada" && !faltaEficacia && !evidCounts[c.id];
+                              const pctAsist = c.trabajadores_programados>0 ? Math.round((c.trabajadores_asistieron/c.trabajadores_programados)*100) : null;
+                              return (
+                                <tr key={c.id} style={{borderBottom:"0.5px solid var(--border)"}}
+                                  onMouseEnter={e=>e.currentTarget.style.background="var(--surface2)"}
+                                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                  <td style={{padding:"10px 14px",fontSize:"12px",color:"var(--text3)",fontWeight:"600",whiteSpace:"nowrap"}}>{autoNum}</td>
+                                  <td style={{padding:"10px 14px",maxWidth:"220px"}}>
+                                    <div style={{fontWeight:"500",fontSize:"13px",lineHeight:"1.3",color:"var(--text)"}}>{c.nombre.length>50?c.nombre.slice(0,50)+"…":c.nombre}</div>
+                                    {(faltaEficacia||faltaEvid) && (
+                                      <div style={{display:"flex",flexDirection:"column",gap:"2px",marginTop:"4px"}}>
+                                        {faltaEficacia && <span style={{fontSize:"10px",color:"#1e40af",background:"#eff6ff",padding:"1px 6px",borderRadius:"4px",width:"fit-content"}}>⏳ Eficacia pendiente</span>}
+                                        {faltaEvid && <span style={{fontSize:"10px",color:"#9a3412",background:"#fff7ed",padding:"1px 6px",borderRadius:"4px",width:"fit-content"}}>📎 Evidencias pendientes</span>}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td style={{padding:"10px 14px",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{c.tipo_formacion||"—"}</td>
+                                  <td style={{padding:"10px 14px",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{c.responsable||"—"}</td>
+                                  <td style={{padding:"10px 14px",fontSize:"12px",color:"var(--text2)",maxWidth:"150px"}}>{c.dirigido_a?c.dirigido_a.slice(0,40)+(c.dirigido_a.length>40?"…":""):"—"}</td>
+                                  <td style={{padding:"10px 14px"}}>
+                                    <span style={{fontSize:"11px",fontWeight:"600",padding:"3px 10px",borderRadius:"20px",
+                                      background:estadoBg[c.estado],color:estadoColor[c.estado],whiteSpace:"nowrap"}}>
+                                      {c.estado}
+                                    </span>
+                                  </td>
+                                  <td style={{padding:"10px 14px",fontSize:"12px"}}>
+                                    {pctAsist!==null ? (
+                                      <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                                        <div style={{width:"40px",height:"4px",background:"var(--surface2)",borderRadius:"2px",overflow:"hidden"}}>
+                                          <div style={{height:"100%",width:`${pctAsist}%`,background:"var(--accent)",borderRadius:"2px"}}/>
+                                        </div>
+                                        <span style={{color:"var(--text2)"}}>{c.trabajadores_asistieron}/{c.trabajadores_programados}</span>
+                                      </div>
+                                    ) : "—"}
+                                  </td>
+                                  <td style={{padding:"10px 14px"}}>
+                                    <div style={{display:"flex",gap:"4px"}}>
+                                      <button type="button" onClick={()=>setEditing(c)} style={{background:"none",color:"var(--text2)",padding:"4px 6px",borderRadius:"6px",border:"0.5px solid var(--border)",cursor:"pointer"}}>{Ico.edit}</button>
+                                      {isAdmin && <button type="button" onClick={()=>deleteOne(c.id)} style={{background:"none",color:"var(--danger)",padding:"4px 6px",borderRadius:"6px",border:"0.5px solid #fca5a5",cursor:"pointer"}}>{Ico.trash}</button>}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {filtered.length===0 && (
+        <div className="empty-state">No se encontraron capacitaciones con estos filtros.</div>
+      )}
+
+      {(creating||editing) && (
+        <CapForm
+          cap={editing}
+          empresas={empresas}
+          token={token}
+          onSave={()=>{ setCreating(false); setEditing(null); onRefresh(); }}
+          onClose={()=>{ setCreating(false); setEditing(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Empresas({ empresas, token, onRefresh }) {
+  const [editing, setEditing] = React.useState(null);
+  const [creating, setCreating] = React.useState(false);
+  const [nombre, setNombre] = React.useState("");
+  const [codigo, setCodigo] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState("");
+
+  const openEdit = (emp) => { setEditing(emp); setNombre(emp.nombre); setCodigo(emp.codigo||""); setErr(""); };
+  const openCreate = () => { setCreating(true); setNombre(""); setCodigo(""); setErr(""); };
+  const close = () => { setEditing(null); setCreating(false); setErr(""); };
+
+  const save = async () => {
+    if(!nombre.trim()) { setErr("El nombre es obligatorio."); return; }
+    setLoading(true); setErr("");
+    try {
+      if(creating) {
+        await api("empresas",{method:"POST",body:JSON.stringify({nombre:nombre.trim(),codigo:codigo.trim().toUpperCase()})},token);
+      } else {
+        await api(`empresas?id=eq.${editing.id}`,{method:"PATCH",body:JSON.stringify({nombre:nombre.trim(),codigo:codigo.trim().toUpperCase()})},token);
+      }
+      onRefresh(); close();
+    } catch(e) { setErr(e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="page">
+      <div className="page-header" style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"12px"}}>
+        <div>
+          <h2 style={{fontSize:"24px",fontWeight:"700"}}>Empresas</h2>
+          <p style={{color:"var(--text2)",marginTop:"4px"}}>Administra las empresas del plan de formación</p>
+        </div>
+        <button className="btn-primary" onClick={openCreate} style={{display:"flex",alignItems:"center",gap:"6px"}}>{Ico.plus} Nueva empresa</button>
+      </div>
+      <div className="card">
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>
+            <th>Nombre</th><th>Código</th><th>Acción</th>
+          </tr></thead>
+          <tbody>
+            {empresas.map(emp=>(
+              <tr key={emp.id}>
+                <td style={{fontWeight:"500"}}>{emp.nombre}</td>
+                <td><span style={{fontSize:"12px",background:"var(--accent-light)",color:"var(--accent)",padding:"2px 10px",borderRadius:"20px",fontWeight:"600"}}>{emp.codigo||"—"}</span></td>
+                <td><button type="button" onClick={()=>openEdit(emp)} style={{background:"none",color:"var(--text2)",padding:"4px 8px",borderRadius:"6px",border:"1px solid var(--border)",fontSize:"13px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}>{Ico.edit} Editar</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {(editing||creating) && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&close()}>
+          <div className="modal" style={{maxWidth:"420px"}}>
+            <div className="modal-header">
+              <h3 style={{fontSize:"18px",fontWeight:"700"}}>{creating?"Nueva empresa":"Editar empresa"}</h3>
+              <button onClick={close} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+            </div>
+            <div className="modal-body">
+              {err && <div className="alert alert-err">{err}</div>}
+              <div className="field"><label className="label">Nombre de la empresa *</label><input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej: Química Orión SAS"/></div>
+              <div className="field"><label className="label">Código (siglas)</label><input value={codigo} onChange={e=>setCodigo(e.target.value)} placeholder="Ej: QO" style={{textTransform:"uppercase"}}/></div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-ghost" onClick={close}>Cancelar</button>
+              <button className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── MÓDULO BIBLIOTECA ──
+function ModuloBiblioteca({ token, isAdmin, onBack, onLogout }) {
+  const { useState, useEffect } = React;
+  const [vista, setVista] = useState("dashboard");
+  const [filtroVencidos, setFiltroVencidos] = useState(false);
+  const [libros, setLibros] = useState([]);
+  const [prestamos, setPrestamos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modalLibro, setModalLibro] = useState(null);
+  const [modalPrestamo, setModalPrestamo] = useState(null);
+  const [editLibro, setEditLibro] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filtroEst, setFiltroEst] = useState("");
+
+  const CATEGORIAS_DEWEY = ["000 - 099 Generalidades y Conocimiento", "100 - 199 Filosofía y Psicología", "200 – 299 Religión", "300 – 399 Ciencias Sociales", "400 – 499 Lenguas", "500 – 599 Ciencias Naturales y Matemáticas", "600 – 699Tecnología / Ciencias Aplicadas", "700 - 799 Artes, Bellas Artes y Recreación", "800 – 899 Literatura", "900 – 999 Historia y Geografía", "RANGO 860 - 869 LITERATURA LATINOAMERICANA", "Literatura Infantil y su Clasificación"];
+  const EMPRESAS = ["QUÍMICA ORIÓN S.A.S","LOGÍSTICA INTEGRAL ALTAIRR S.A.S","MAXPURE S.A.S","FIXNOVA S.A.S"];
+
+  const apiB = async (path, opts={}) => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: opts.prefer||"return=representation", ...(opts.headers||{}) },
+      ...opts
+    });
+    if(!res.ok){ const t=await res.text(); throw new Error(t); }
+    const t = await res.text(); return t ? JSON.parse(t) : null;
+  };
+
+  const [empleados, setEmpleados] = useState([]);
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const [libs, prests, emps] = await Promise.all([
+        apiB("libros?select=*&order=titulo,descripcion_dewey"),
+        apiB("prestamos?select=*&order=created_at.desc"),
+        apiB("empleados?select=*&order=nombre")
+      ]);
+      setLibros(libs||[]);
+      setPrestamos(prests||[]);
+      setEmpleados(emps||[]);
+    } catch(e){ console.error(e); }
+    setLoading(false);
+  };
+
+  useEffect(()=>{ cargar(); },[]);
+
+  // Calcular disponibles por libro
+  const disponibles = (libroId) => {
+    const lib = libros.find(l=>l.id===libroId);
+    if(!lib) return 0;
+    const prestados = prestamos.filter(p=>p.libro_id===libroId && p.estado==="Prestado").length;
+    return lib.total_ejemplares - prestados;
+  };
+
+  const totalDisponibles = libros.reduce((acc,l)=> acc + disponibles(l.id), 0);
+  const totalPrestados = prestamos.filter(p=>p.estado==="Prestado").length;
+  const vencidos = prestamos.filter(p=>p.estado==="Prestado" && p.fecha_devolucion_esperada && new Date(p.fecha_devolucion_esperada) < new Date()).length;
+
+  const librosFiltrados = libros.filter(l=>{
+    const s = search.toLowerCase();
+    return !s || l.titulo?.toLowerCase().includes(s) || l.autor?.toLowerCase().includes(s) || l.categoria?.toLowerCase().includes(s);
+  });
+
+  // Reset filtroVencidos when vista changes away from prestamos
+  React.useEffect(()=>{ if(vista!=="prestamos") setFiltroVencidos(false); },[vista]);
+
+  const prestamosFiltrados = prestamos.filter(p=>{
+    const s = search.toLowerCase();
+    const matchSearch = !s || p.nombre_lector?.toLowerCase().includes(s);
+    const matchEst = !filtroEst || p.estado === filtroEst;
+    const matchVencido = !filtroVencidos || (p.estado==="Prestado" && p.fecha_devolucion_esperada && new Date(p.fecha_devolucion_esperada) < new Date());
+    return matchSearch && matchEst && matchVencido;
+  });
+
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
+      {/* Header */}
+      <div style={{background:"var(--surface)",borderBottom:"0.5px solid var(--border)",padding:"14px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+          <button type="button" onClick={onBack} style={{background:"none",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"6px 12px",fontSize:"12px",color:"var(--text2)",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}>
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            Módulos
+          </button>
+          <div>
+            <div style={{fontFamily:"Fraunces,serif",fontSize:"18px",fontWeight:"700",color:"var(--text)"}}>Biblioteca Orión</div>
+            <div style={{fontSize:"11px",color:"var(--text3)"}}>Gestión de libros y préstamos</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+          {[{id:"dashboard",label:"Inicio"},{id:"libros",label:"Libros"},{id:"prestamos",label:"Préstamos"},{id:"empleados",label:"Empleados"}].map(v=>(
+            <button key={v.id} type="button" onClick={()=>setVista(v.id)} style={{padding:"6px 14px",borderRadius:"7px",fontSize:"13px",cursor:"pointer",border:"0.5px solid",fontWeight:vista===v.id?"600":"400",
+              borderColor:vista===v.id?"#c9a84c":"var(--border)",background:vista===v.id?"#fdf9f0":"var(--surface)",color:vista===v.id?"#a8893a":"var(--text2)"}}>
+              {v.label}
+            </button>
+          ))}
+          <button type="button" onClick={onLogout} style={{background:"none",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"6px 12px",fontSize:"12px",color:"var(--text3)",cursor:"pointer",marginLeft:"8px"}}>Salir</button>
+        </div>
+      </div>
+
+      <div style={{flex:1,padding:"28px 32px",maxWidth:"1100px",width:"100%",margin:"0 auto"}}>
+        {loading && <div style={{textAlign:"center",padding:"40px",color:"var(--text3)"}}>Cargando...</div>}
+
+        {/* DASHBOARD */}
+        {!loading && vista==="dashboard" && (
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"14px",marginBottom:"24px"}}>
+              {[
+                {num:libros.length, label:"Títulos en catálogo", color:"var(--text)"},
+                {num:totalDisponibles, label:"Ejemplares disponibles", color:"#c9a84c"},
+                {num:totalPrestados, label:"Actualmente prestados", color:"#3b5bdb", action:()=>{setFiltroVencidos(false);setVista("prestamos");}},
+                {num:vencidos, label:"Préstamos vencidos", color:vencidos>0?"#dc2626":"var(--text3)", action:()=>{setFiltroVencidos(true);setVista("prestamos");}},
+              ].map((s,i)=>(
+                <div key={i} className="stat-card" onClick={s.action} style={{cursor:s.action?"pointer":"default",transition:"transform 0.12s"}}
+                  onMouseEnter={e=>{if(s.action)e.currentTarget.style.transform="translateY(-2px)"}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)"}}>
+                  <div className="stat-num" style={{color:s.color}}>{s.num}</div>
+                  <div className="stat-label">{s.label}{s.action&&<span style={{fontSize:"10px",color:"var(--text3)",marginLeft:"4px"}}>→</span>}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Préstamos activos */}
+            <div className="card" style={{padding:"20px",marginBottom:"20px"}}>
+              <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"14px"}}>Préstamos activos</div>
+              {(()=>{
+                const vencidosList = prestamos.filter(p=>p.estado==="Prestado" && p.fecha_devolucion_esperada && new Date(p.fecha_devolucion_esperada) < new Date());
+                if(vencidosList.length===0) return null;
+                return (
+                  <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:"10px",padding:"14px 18px",marginBottom:"16px"}}>
+                    <div style={{fontSize:"12px",fontWeight:"600",color:"#991b1b",marginBottom:"10px",textTransform:"uppercase",letterSpacing:"0.06em"}}>⚠️ {vencidosList.length} préstamo{vencidosList.length!==1?"s":""} vencido{vencidosList.length!==1?"s":""}</div>
+                    {vencidosList.map(p=>{
+                      const lib = libros.find(l=>l.id===p.libro_id);
+                      const emp = empleados.find(e=>e.nombre===p.nombre_lector || e.cedula===p.cedula);
+                      const celular = emp?.celular || p.contacto;
+                      const correo = emp?.correo || (p.contacto?.includes('@') ? p.contacto : '');
+                      const msg = encodeURIComponent('Hola '+p.nombre_lector+', te recordamos que el libro: '+(lib&&lib.titulo?lib.titulo:'')+'. Fecha prestamo: '+p.fecha_prestamo+'. Vencio el: '+p.fecha_devolucion_esperada+'. Por favor contactanos para coordinar la devolucion. Gracias.');
+                      const waNum = celular ? celular.replace(/[^0-9]/g,'') : '';
+                      const waLink = waNum ? `https://wa.me/57${waNum}?text=${msg}` : null;
+                      const mailLink = correo ? `mailto:${correo}?subject=Recordatorio devolución libro&body=${msg}` : null;
+                      return (
+                        <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"0.5px solid #fca5a580",flexWrap:"wrap",gap:"8px"}}>
+                          <div>
+                            <div style={{fontSize:"13px",fontWeight:"500",color:"#991b1b"}}>{p.nombre_lector}</div>
+                            <div style={{fontSize:"12px",color:"#dc2626"}}>"{lib?.titulo||"—"}" · Venció: {p.fecha_devolucion_esperada}</div>
+                          </div>
+                          <div style={{display:"flex",gap:"6px"}}>
+                            {waLink && <a href={waLink} target="_blank" rel="noreferrer" style={{fontSize:"11px",padding:"5px 12px",borderRadius:"6px",background:"#25D366",color:"white",textDecoration:"none",fontWeight:"600",display:"flex",alignItems:"center",gap:"4px"}}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.532 5.857L.057 23.057l5.34-1.401A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.007-1.374l-.36-.213-3.167.831.846-3.083-.234-.373A9.818 9.818 0 1112 21.818z"/></svg>
+                              WhatsApp
+                            </a>}
+                            {mailLink && <a href={mailLink} style={{fontSize:"11px",padding:"5px 12px",borderRadius:"6px",background:"#3b5bdb",color:"white",textDecoration:"none",fontWeight:"600",display:"flex",alignItems:"center",gap:"4px"}}>
+                              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                              Correo
+                            </a>}
+                            <button type="button" onClick={()=>setModalPrestamo({...p,accion:"devolver"})} style={{fontSize:"11px",padding:"5px 12px",borderRadius:"6px",background:"#c9a84c",color:"#1a1714",border:"none",cursor:"pointer",fontWeight:"600"}}>Devolver</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              {prestamos.filter(p=>p.estado==="Prestado").length===0
+                ? <div style={{color:"var(--text3)",fontSize:"13px",padding:"20px 0",textAlign:"center"}}>No hay préstamos activos.</div>
+                : <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>
+                    {["Libro","Lector","Empresa","Fecha préstamo","Devolución esperada","Estado"].map(h=>(
+                      <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid var(--border)",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {prestamos.filter(p=>p.estado==="Prestado").map(p=>{
+                      const lib = libros.find(l=>l.id===p.libro_id);
+                      const vencido = p.fecha_devolucion_esperada && new Date(p.fecha_devolucion_esperada) < new Date();
+                      return (
+                        <tr key={p.id}>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",fontWeight:"500"}}>{lib?.titulo||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px"}}>{p.nombre_lector}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.empresa||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.fecha_prestamo}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",whiteSpace:"nowrap",color:vencido?"#dc2626":"var(--text2)",fontWeight:vencido?"600":"400"}}>{p.fecha_devolucion_esperada||"—"}{vencido?" ⚠️":""}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                            <button type="button" onClick={()=>setModalPrestamo({...p, accion:"devolver"})} style={{fontSize:"11px",padding:"4px 10px",border:"0.5px solid #c9a84c",borderRadius:"6px",background:"#fdf9f0",color:"#a8893a",cursor:"pointer",fontWeight:"600"}}>
+                              Registrar devolución
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table></div>
+              }
+            </div>
+          </div>
+        )}
+
+        {/* LIBROS */}
+        {!loading && vista==="libros" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
+              <div>
+                <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>Catálogo de libros</h2>
+                <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{libros.length} títulos registrados</p>
+              </div>
+<button type="button" onClick={()=>setEditLibro({})} className="btn-primary" style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Nuevo libro
+              </button>
+            </div>
+            <div style={{marginBottom:"16px"}}>
+              <div className="search-wrap">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{position:"absolute",left:"10px",top:"50%",transform:"translateY(-50%)"}}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+                <input placeholder="Buscar por título, autor o categoría…" value={search} onChange={e=>setSearch(e.target.value)} style={{paddingLeft:"36px"}}/>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:"14px"}}>
+              {librosFiltrados.map(l=>{
+                const disp = disponibles(l.id);
+                const prestados = l.total_ejemplares - disp;
+                return (
+                  <div key={l.id} className="card" style={{padding:"18px 20px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"10px"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:"14px",fontWeight:"600",color:"var(--text)",lineHeight:"1.3",marginBottom:"3px"}}>{l.titulo}</div>
+                        <div style={{fontSize:"12px",color:"var(--text2)"}}>{l.autor||"Sin autor"}</div>
+                      </div>
+                      <span style={{fontSize:"11px",padding:"3px 10px",borderRadius:"20px",fontWeight:"600",background:disp>0?"#ecfdf5":"#fef2f2",color:disp>0?"#065f46":"#991b1b",marginLeft:"8px",flexShrink:0,whiteSpace:"nowrap"}}>
+                        {disp} disp.
+                      </span>
+                    </div>
+                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"12px"}}>
+                      {l.categoria && <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"20px",background:"#f0f4ff",color:"#3b5bdb",fontWeight:"500"}}>{l.categoria}</span>}
+                      {l.genero && <span style={{fontSize:"11px",padding:"2px 8px",borderRadius:"20px",background:"var(--surface2)",color:"var(--text2)"}}>{l.genero}</span>}
+                    </div>
+                    {l.descripcion_dewey && <div style={{fontSize:"11px",color:"var(--text3)",fontWeight:"600",marginBottom:"6px",letterSpacing:"0.04em"}}>{l.descripcion_dewey}</div>}
+                    {l.sinopsis && <div style={{fontSize:"12px",color:"var(--text2)",lineHeight:"1.5",marginBottom:"10px",display:"-webkit-box",WebkitLineClamp:"3",WebkitBoxOrient:"vertical",overflow:"hidden"}}>{l.sinopsis}</div>}
+                    <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"12px"}}>
+                      {l.total_ejemplares} ejemplar{l.total_ejemplares!==1?"es":""} · {prestados} prestado{prestados!==1?"s":""} · ${(l.valor||0).toLocaleString()}
+                    </div>
+                    <div style={{display:"flex",gap:"8px"}}>
+                      {disp > 0 && <button type="button" onClick={()=>setModalPrestamo({libro_id:l.id, accion:"nuevo"})} style={{flex:1,fontSize:"12px",padding:"7px",border:"none",borderRadius:"7px",background:"#3b5bdb",color:"white",cursor:"pointer",fontWeight:"500"}}>Prestar</button>}
+        <button type="button" onClick={()=>setEditLibro(l)} style={{fontSize:"12px",padding:"7px 12px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"none",color:"var(--text2)",cursor:"pointer"}}>Editar</button>
+                    </div>
+                  </div>
+                );
+              })}
+              {librosFiltrados.length===0 && <div style={{color:"var(--text3)",fontSize:"13px",padding:"40px 0",textAlign:"center",gridColumn:"1/-1"}}>No se encontraron libros.</div>}
+            </div>
+          </div>
+        )}
+
+        {/* PRÉSTAMOS */}
+        {!loading && vista==="prestamos" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
+              <div>
+                <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>
+                  {filtroVencidos ? "Préstamos vencidos" : "Historial de préstamos"}
+                </h2>
+                <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{prestamosFiltrados.length} registros{filtroVencidos?" vencidos":""}</p>
+              </div>
+              {filtroVencidos && <button type="button" onClick={()=>setFiltroVencidos(false)} style={{fontSize:"12px",padding:"6px 14px",border:"0.5px solid var(--border)",borderRadius:"8px",background:"var(--surface)",color:"var(--text2)",cursor:"pointer"}}>Ver todos →</button>}
+            </div>
+            <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"16px"}}>
+              <div className="search-wrap" style={{flex:1,minWidth:"200px",position:"relative"}}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{position:"absolute",left:"10px",top:"50%",transform:"translateY(-50%)"}}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+                <input placeholder="Buscar por lector…" value={search} onChange={e=>setSearch(e.target.value)} style={{paddingLeft:"36px"}}/>
+              </div>
+              <select value={filtroEst} onChange={e=>setFiltroEst(e.target.value)} style={{width:"auto",minWidth:"150px"}}>
+                <option value="">Todos los estados</option>
+                <option value="Prestado">Prestados</option>
+                <option value="Devuelto">Devueltos</option>
+              </select>
+            </div>
+            <div className="card">
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>
+                    {["Libro","Lector","Cédula","Cargo","Empresa","Estado emp.","Contacto","Préstamo","Dev. esperada","Dev. real","Estado",""].map(h=>(
+                      <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid var(--border)",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {prestamosFiltrados.map(p=>{
+                      const lib = libros.find(l=>l.id===p.libro_id);
+                      const vencido = p.estado==="Prestado" && p.fecha_devolucion_esperada && new Date(p.fecha_devolucion_esperada) < new Date();
+                      return (
+                        <tr key={p.id}>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",fontWeight:"500",whiteSpace:"nowrap"}}>{lib?.titulo||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",whiteSpace:"nowrap"}}>{p.nombre_lector}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.cedula||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.cargo||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.empresa||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                            {(()=>{const emp=empleados.find(e=>e.cedula===p.cedula||e.nombre===p.nombre_lector); if(!emp) return <span style={{color:"var(--text3)",fontSize:"11px"}}>—</span>; return <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 8px",borderRadius:"20px",background:emp.activo!==false?"#ecfdf5":"#fef2f2",color:emp.activo!==false?"#065f46":"#991b1b"}}>{emp.activo!==false?"Activo":"Inactivo"}</span>;})()}
+                          </td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.contacto||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",whiteSpace:"nowrap"}}>{p.fecha_prestamo}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",whiteSpace:"nowrap",color:vencido?"#dc2626":"var(--text2)",fontWeight:vencido?"600":"400"}}>{p.fecha_devolucion_esperada||"—"}{vencido?" ⚠️":""}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.fecha_devolucion_real||"—"}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                            <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 10px",borderRadius:"20px",whiteSpace:"nowrap",
+                              background:p.estado==="Devuelto"?"#ecfdf5":vencido?"#fef2f2":"#eff6ff",
+                              color:p.estado==="Devuelto"?"#065f46":vencido?"#991b1b":"#1e40af"}}>
+                              {p.estado==="Devuelto"?"Devuelto":vencido?"Vencido":"Prestado"}
+                            </span>
+                          </td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                            <button type="button" onClick={async()=>{ if(!confirm("¿Eliminar este préstamo?")) return; await apiB(`prestamos?id=eq.${p.id}`,{method:"DELETE",prefer:"return=minimal"}); cargar(); }} style={{background:"none",color:"var(--danger)",border:"0.5px solid var(--danger)",borderRadius:"6px",padding:"3px 8px",fontSize:"11px",cursor:"pointer"}}>Eliminar</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {prestamosFiltrados.length===0 && <tr><td colSpan="10" style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"13px"}}>No hay préstamos registrados.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL LIBRO */}
+      {editLibro && <FormLibro libro={editLibro} CATEGORIAS_DEWEY={CATEGORIAS_DEWEY} token={token} onSave={()=>{setEditLibro(null);cargar();}} onClose={()=>setEditLibro(null)} apiB={apiB}/>}
+
+      {/* MODAL PRÉSTAMO */}
+      {modalPrestamo && <FormPrestamo data={modalPrestamo} libros={libros} empleados={empleados} token={token} onSave={()=>{setModalPrestamo(null);cargar();}} onClose={()=>setModalPrestamo(null)} apiB={apiB}/>}
+      {vista==="empleados" && <GestorEmpleados empleados={empleados} token={token} onRefresh={cargar} apiB={apiB}/>}
+    </div>
+  );
+}
+
+// ── FORM LIBRO ──
+function FormLibro({ libro, CATEGORIAS_DEWEY, token, onSave, onClose, apiB }) {
+  const isNew = !libro.id;
+  const [form, setForm] = React.useState({
+    categoria_dewey: libro.categoria_dewey||"",
+    descripcion_dewey: libro.descripcion_dewey||"",
+    titulo: libro.titulo||"",
+    autor: libro.autor||"",
+    genero: libro.genero||"",
+    sinopsis: libro.sinopsis||"",
+    valor: libro.valor||0,
+    total_ejemplares: libro.total_ejemplares||1,
+    observaciones: libro.observaciones||""
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const buscarEmpleado = (cedula) => {
+    set("cedula", cedula);
+    const emp = empleados.find(e=>e.cedula===cedula.trim());
+    if(emp) {
+      setForm(f=>({...f, cedula, nombre_lector:emp.nombre, cargo:emp.cargo||"", empresa:emp.empresa||"", contacto:emp.celular||emp.correo||""}));
+    }
+  };
+
+  const save = async () => {
+    if(!form.titulo.trim()){ setErr("El título es obligatorio."); return; }
+    setLoading(true); setErr("");
+    try {
+      if(isNew) await apiB("libros", {method:"POST", body:JSON.stringify({...form, updated_at:new Date().toISOString()})});
+      else await apiB(`libros?id=eq.${libro.id}`, {method:"PATCH", body:JSON.stringify({...form, updated_at:new Date().toISOString()})});
+      onSave();
+    } catch(e){ setErr(e.message); }
+    setLoading(false);
+  };
+
+  const eliminar = async () => {
+    if(!confirm("¿Eliminar este libro?")) return;
+    await apiB(`libros?id=eq.${libro.id}`, {method:"DELETE", prefer:"return=minimal"});
+    onSave();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nuevo libro":"Editar libro"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          <div className="field">
+            <label className="label">Categoría Dewey</label>
+            <select value={form.categoria_dewey} onChange={e=>set("categoria_dewey",e.target.value)}>
+              <option value="">— Seleccionar categoría —</option>
+              {CATEGORIAS_DEWEY.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label className="label">Nomenclatura Dewey (código)</label>
+            <input value={form.descripcion_dewey} onChange={e=>set("descripcion_dewey",e.target.value)} placeholder="Ej: 001 HA, 658.3 Go, 152.1 Ri"/>
+          </div>
+          <div className="field"><label className="label">Título *</label><input value={form.titulo} onChange={e=>set("titulo",e.target.value)} placeholder="Título del libro"/></div>
+          <div className="field"><label className="label">Autor</label><input value={form.autor} onChange={e=>set("autor",e.target.value)} placeholder="Nombre del autor"/></div>
+          <div className="field"><label className="label">Género</label><input value={form.genero} onChange={e=>set("genero",e.target.value)} placeholder="Ej: Literatura, Autoayuda, Psicología…"/></div>
+          <div className="field"><label className="label">Sinopsis</label><textarea value={form.sinopsis} onChange={e=>set("sinopsis",e.target.value)} rows={4} placeholder="Descripción o sinopsis del libro…"/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Valor ($)</label><input type="number" value={form.valor} onChange={e=>set("valor",parseFloat(e.target.value)||0)}/></div>
+            <div className="field"><label className="label">Total ejemplares</label><input type="number" min="1" value={form.total_ejemplares} onChange={e=>set("total_ejemplares",parseInt(e.target.value)||1)}/></div>
+          </div>
+          <div className="field"><label className="label">Observaciones</label><textarea value={form.observaciones} onChange={e=>set("observaciones",e.target.value)} rows={2} placeholder="Observaciones adicionales…"/></div>
+        </div>
+        <div className="modal-footer">
+          {!isNew && <button type="button" onClick={eliminar} style={{marginRight:"auto",background:"none",color:"var(--danger)",border:"0.5px solid var(--danger)",borderRadius:"8px",padding:"8px 14px",fontSize:"13px",cursor:"pointer"}}>Eliminar</button>}
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FORM PRÉSTAMO ──
+function FormPrestamo({ data, libros, empleados=[], token, onSave, onClose, apiB }) {
+  const isDevolucion = data.accion === "devolver";
+  const [form, setForm] = React.useState({
+    libro_id: data.libro_id||"",
+    nombre_lector: data.nombre_lector||"",
+    cedula: data.cedula||"",
+    cargo: data.cargo||"",
+    empresa: data.empresa||"",
+    contacto: data.contacto||"",
+    fecha_prestamo: data.fecha_prestamo||new Date().toISOString().slice(0,10),
+    fecha_devolucion_esperada: data.fecha_devolucion_esperada||"",
+    fecha_devolucion_real: new Date().toISOString().slice(0,10),
+    observaciones: data.observaciones||""
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const buscarEmpleado = (cedula) => {
+    set("cedula", cedula);
+    const emp = empleados.find(e=>e.cedula===cedula.trim());
+    if(emp) {
+      setForm(f=>({...f, cedula, nombre_lector:emp.nombre, cargo:emp.cargo||"", empresa:emp.empresa||"", contacto:emp.celular||emp.correo||""}));
+    }
+  };
+
+  const save = async () => {
+    setLoading(true); setErr("");
+    try {
+      if(isDevolucion) {
+        await apiB(`prestamos?id=eq.${data.id}`, {
+          method:"PATCH",
+          body:JSON.stringify({estado:"Devuelto", fecha_devolucion_real:form.fecha_devolucion_real, observaciones:form.observaciones})
+        });
+      } else {
+        if(!form.libro_id||!form.nombre_lector){ setErr("Libro y lector son obligatorios."); setLoading(false); return; }
+        await apiB("prestamos", {method:"POST", body:JSON.stringify({
+          libro_id:form.libro_id, nombre_lector:form.nombre_lector,
+          cedula:form.cedula, cargo:form.cargo, empresa:form.empresa,
+          contacto:form.contacto, fecha_prestamo:form.fecha_prestamo,
+          fecha_devolucion_esperada:form.fecha_devolucion_esperada||null,
+          observaciones:form.observaciones, estado:"Prestado"
+        })});
+      }
+      onSave();
+    } catch(e){ setErr(e.message); }
+    setLoading(false);
+  };
+
+  const lib = libros.find(l=>l.id===data.libro_id);
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isDevolucion?"Registrar devolución":"Nuevo préstamo"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          {isDevolucion ? (
+            <>
+              <div style={{background:"var(--surface2)",borderRadius:"10px",padding:"14px",marginBottom:"16px"}}>
+                <div style={{fontSize:"12px",color:"var(--text3)",marginBottom:"4px"}}>Libro</div>
+                <div style={{fontSize:"15px",fontWeight:"600",color:"var(--text)"}}>{lib?.titulo}</div>
+                <div style={{fontSize:"13px",color:"var(--text2)",marginTop:"2px"}}>Prestado a: {data.nombre_lector}</div>
+              </div>
+              <div className="field"><label className="label">Fecha de devolución real</label><input type="date" value={form.fecha_devolucion_real} onChange={e=>set("fecha_devolucion_real",e.target.value)}/></div>
+              <div className="field"><label className="label">Observaciones</label><textarea value={form.observaciones} onChange={e=>set("observaciones",e.target.value)} rows={2}/></div>
+            </>
+          ) : (
+            <>
+              <div className="field"><label className="label">Libro *</label>
+                <select value={form.libro_id} onChange={e=>set("libro_id",e.target.value)}>
+                  <option value="">— Seleccionar libro —</option>
+                  {libros.map(l=><option key={l.id} value={l.id}>{l.titulo}</option>)}
+                </select>
+              </div>
+              <div className="field"><label className="label">Nombre del lector *</label><input value={form.nombre_lector} onChange={e=>set("nombre_lector",e.target.value)} placeholder="Nombre completo"/></div>
+              <div className="grid2">
+                <div className="field">
+                <label className="label">Cédula</label>
+                <input value={form.cedula} onChange={e=>buscarEmpleado(e.target.value)} placeholder="Ingresa la cédula para autocompletar"/>
+                {(()=>{const emp=empleados.find(e=>e.cedula===form.cedula); if(!emp) return null; return <div style={{fontSize:"11px",marginTop:"4px",color:emp.activo!==false?"#059669":"#dc2626",fontWeight:"500"}}>{emp.activo!==false?"✓ Empleado encontrado · Activo":"⚠ Empleado encontrado · Inactivo (retirado)"}</div>; })()}
+              </div>
+                <div className="field"><label className="label">Cargo</label><input value={form.cargo} onChange={e=>set("cargo",e.target.value)}/></div>
+              </div>
+              <div className="grid2">
+                <div className="field"><label className="label">Empresa</label>
+            <select value={form.empresa} onChange={e=>set("empresa",e.target.value)}>
+              <option value="">— Seleccionar empresa —</option>
+              <option value="QUÍMICA ORIÓN S.A.S">QUÍMICA ORIÓN S.A.S</option>
+              <option value="LOGÍSTICA INTEGRAL ALTAIRR S.A.S">LOGÍSTICA INTEGRAL ALTAIRR S.A.S</option>
+              <option value="MAXPURE S.A.S">MAXPURE S.A.S</option>
+              <option value="FIXNOVA S.A.S">FIXNOVA S.A.S</option>
+            </select>
+          </div>
+                <div className="field"><label className="label">Correo o celular</label><input value={form.contacto} onChange={e=>set("contacto",e.target.value)}/></div>
+              </div>
+              <div className="grid2">
+                <div className="field"><label className="label">Fecha de préstamo</label><input type="date" value={form.fecha_prestamo} onChange={e=>set("fecha_prestamo",e.target.value)}/></div>
+                <div className="field"><label className="label">Fecha devolución esperada</label><input type="date" value={form.fecha_devolucion_esperada} onChange={e=>set("fecha_devolucion_esperada",e.target.value)}/></div>
+              </div>
+              <div className="field"><label className="label">Observaciones</label><textarea value={form.observaciones} onChange={e=>set("observaciones",e.target.value)} rows={2}/></div>
+            </>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ── GESTOR EMPLEADOS ──
+function GestorEmpleados({ empleados, token, onRefresh, apiB }) {
+  const { useState } = React;
+  const [search, setSearch] = React.useState("");
+  const [editEmp, setEditEmp] = useState(null);
+
+  const filtered = empleados.filter(e=>{
+    const s = search.toLowerCase();
+    return !s || e.nombre?.toLowerCase().includes(s) || e.cedula?.includes(s) || e.empresa?.toLowerCase().includes(s);
+  });
+
+  const eliminar = async (id) => {
+    if(!confirm("¿Eliminar este empleado?")) return;
+    await apiB(`empleados?id=eq.${id}`,{method:"DELETE",prefer:"return=minimal"});
+    onRefresh();
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
+        <div>
+          <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>Empleados</h2>
+          <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{empleados.length} registros</p>
+        </div>
+        <button type="button" onClick={()=>setEditEmp({})} className="btn-primary" style={{display:"flex",alignItems:"center",gap:"6px"}}>
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Nuevo empleado
+        </button>
+      </div>
+      <div style={{marginBottom:"14px"}}>
+        <div style={{position:"relative"}}>
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{position:"absolute",left:"10px",top:"50%",transform:"translateY(-50%)",color:"var(--text3)"}}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+          <input placeholder="Buscar por nombre, cédula o empresa…" value={search} onChange={e=>setSearch(e.target.value)} style={{paddingLeft:"36px"}}/>
+        </div>
+      </div>
+      <div className="card">
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>
+              {["Cédula","Nombre","Cargo","Empresa","Celular","Correo","Estado",""].map(h=>(
+                <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid var(--border)",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {filtered.map(e=>(
+                <tr key={e.id}>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",fontWeight:"500"}}>{e.cedula}</td>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px"}}>{e.nombre}</td>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{e.cargo||"—"}</td>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{e.empresa||"—"}</td>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{e.celular||"—"}</td>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{e.correo||"—"}</td>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                    <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 10px",borderRadius:"20px",
+                      background:e.activo!==false?"#ecfdf5":"#fef2f2",
+                      color:e.activo!==false?"#065f46":"#991b1b"}}>
+                      {e.activo!==false?"Activo":"Inactivo"}
+                    </span>
+                  </td>
+                  <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                    <div style={{display:"flex",gap:"6px"}}>
+                      <button type="button" onClick={()=>setEditEmp(e)} style={{background:"none",color:"var(--text2)",padding:"4px 8px",borderRadius:"6px",border:"0.5px solid var(--border)",fontSize:"12px",cursor:"pointer"}}>Editar</button>
+                      <button type="button" onClick={()=>eliminar(e.id)} style={{background:"none",color:"var(--danger)",padding:"4px 8px",borderRadius:"6px",border:"0.5px solid var(--danger)",fontSize:"12px",cursor:"pointer"}}>Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length===0 && <tr><td colSpan="7" style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"13px"}}>No se encontraron empleados.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {editEmp && <FormEmpleado emp={editEmp} onSave={()=>{setEditEmp(null);onRefresh();}} onClose={()=>setEditEmp(null)} apiB={apiB}/>}
+    </div>
+  );
+}
+
+// ── FORM EMPLEADO ──
+function FormEmpleado({ emp, onSave, onClose, apiB }) {
+  const isNew = !emp.id;
+  const [form, setForm] = React.useState({
+    cedula: emp.cedula||"", nombre: emp.nombre||"", cargo: emp.cargo||"",
+    empresa: emp.empresa||"", celular: emp.celular||"", correo: emp.correo||"",
+    activo: emp.activo!==false
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const buscarEmpleado = (cedula) => {
+    set("cedula", cedula);
+    const emp = empleados.find(e=>e.cedula===cedula.trim());
+    if(emp) {
+      setForm(f=>({...f, cedula, nombre_lector:emp.nombre, cargo:emp.cargo||"", empresa:emp.empresa||"", contacto:emp.celular||emp.correo||""}));
+    }
+  };
+
+  const save = async () => {
+    if(!form.cedula.trim()||!form.nombre.trim()){ setErr("Cédula y nombre son obligatorios."); return; }
+    setLoading(true); setErr("");
+    try {
+      if(isNew) await apiB("empleados",{method:"POST",body:JSON.stringify(form)});
+      else await apiB(`empleados?id=eq.${emp.id}`,{method:"PATCH",body:JSON.stringify(form)});
+      onSave();
+    } catch(e){ setErr(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:"480px"}}>
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nuevo empleado":"Editar empleado"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          <div className="grid2">
+            <div className="field"><label className="label">Cédula *</label><input value={form.cedula} onChange={e=>set("cedula",e.target.value)} placeholder="Número de cédula"/></div>
+            <div className="field"><label className="label">Empresa</label>
+            <select value={form.empresa} onChange={e=>set("empresa",e.target.value)}>
+              <option value="">— Seleccionar empresa —</option>
+              <option value="QUÍMICA ORIÓN S.A.S">QUÍMICA ORIÓN S.A.S</option>
+              <option value="LOGÍSTICA INTEGRAL ALTAIRR S.A.S">LOGÍSTICA INTEGRAL ALTAIRR S.A.S</option>
+              <option value="MAXPURE S.A.S">MAXPURE S.A.S</option>
+              <option value="FIXNOVA S.A.S">FIXNOVA S.A.S</option>
+            </select>
+          </div>
+          </div>
+          <div className="field"><label className="label">Nombre completo *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)}/></div>
+          <div className="field"><label className="label">Cargo</label><input value={form.cargo} onChange={e=>set("cargo",e.target.value)}/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Celular</label><input value={form.celular} onChange={e=>set("celular",e.target.value)} placeholder="Ej: 3001234567"/></div>
+            <div className="field"><label className="label">Correo</label><input type="email" value={form.correo} onChange={e=>set("correo",e.target.value)} placeholder="correo@empresa.com"/></div>
+          </div>
+          <div className="field">
+            <label className="label">Estado del empleado</label>
+            <div style={{display:"flex",gap:"10px",marginTop:"4px"}}>
+              <label style={{display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",fontSize:"14px"}}>
+                <input type="radio" checked={form.activo!==false} onChange={()=>set("activo",true)} style={{accentColor:"#c9a84c"}}/> Activo
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",fontSize:"14px"}}>
+                <input type="radio" checked={form.activo===false} onChange={()=>set("activo",false)} style={{accentColor:"#dc2626"}}/> Inactivo
+              </label>
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MODULOS HOME ──
+function ModulosHome({ isAdmin, modulosPermitidos=[], onSelectModulo, onLogout, userName }) {
+  const hora = new Date().getHours();
+  const saludo = hora < 12 ? "Buenos días" : hora < 18 ? "Buenas tardes" : "Buenas noches";
+  const nombre = userName || (isAdmin ? "Mariale" : "");
+
+  const modulos = [
+    {
+      id: "formacion", nombre: "Plan de formación", desc: "Capacitaciones, indicadores y evidencias",
+      activo: true, acceso: isAdmin || modulosPermitidos.includes("formacion"),
+      accentColor: "#c9a84c", iconBg: "#fdf9f0", badgeBg: "#fdf9f0", badgeColor: "#a8893a", badgeBorder: "#e8c97a",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#c9a84c" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+    },
+    {
+      id: "biblioteca", nombre: "Biblioteca Orión", desc: "Libros, ejemplares y préstamos",
+      activo: true, acceso: isAdmin || modulosPermitidos.includes("biblioteca"),
+      accentColor: "#3b5bdb", iconBg: "#eff6ff", badgeBg: "#eff6ff", badgeColor: "#2d4abf", badgeBorder: "#93b4f4",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#3b5bdb" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+    },
+    {
+      id: "seleccion", nombre: "Selección", desc: "Vacantes y candidatos",
+      activo: false, acceso: false, accentColor: "#ece6dd", iconBg: "#f4f1ec",
+      badgeBg: "#f4f1ec", badgeColor: "#b8b0a6", badgeBorder: "#ece6dd",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#b8b0a6" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    },
+    {
+      id: "evaluacion", nombre: "Evaluación", desc: "Desempeño y seguimiento",
+      activo: false, acceso: false, accentColor: "#ece6dd", iconBg: "#f4f1ec",
+      badgeBg: "#f4f1ec", badgeColor: "#b8b0a6", badgeBorder: "#ece6dd",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#b8b0a6" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    },
+    {
+      id: "bienestar", nombre: "Bienestar", desc: "Clima y programas",
+      activo: false, acceso: false, accentColor: "#ece6dd", iconBg: "#f4f1ec",
+      badgeBg: "#f4f1ec", badgeColor: "#b8b0a6", badgeBorder: "#ece6dd",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#b8b0a6" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+    },
+  ];
+
+  return (
+    <div style={{minHeight:"100vh",background:"#f9f8f6",padding:"0"}}>
+      <div style={{maxWidth:"860px",margin:"0 auto",padding:"44px 32px"}}>
+
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"44px"}}>
+          <div>
+            <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"22px",letterSpacing:"-0.02em",color:"#1a1714"}}>Aura</div>
+            <div style={{fontSize:"9px",color:"#c9a84c",letterSpacing:"0.22em",fontStyle:"italic",marginTop:"1px"}}>Brajá</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+            <span style={{fontSize:"11px",color:"#9e9890",background:"#ffffff",border:"0.5px solid #ece6dd",borderRadius:"20px",padding:"4px 12px"}}>
+              {isAdmin ? "Admin" : "Colaborador"}
+            </span>
+            <button type="button" onClick={onLogout} style={{background:"none",border:"0.5px solid #ece6dd",borderRadius:"8px",padding:"5px 12px",fontSize:"11px",color:"#b8b0a6",cursor:"pointer"}}>Salir</button>
+          </div>
+        </div>
+
+        {/* Saludo */}
+        <div style={{marginBottom:"32px"}}>
+          <h1 style={{fontFamily:"Fraunces,serif",fontSize:"28px",fontWeight:"700",color:"#1a1714",letterSpacing:"-0.02em"}}>{saludo}{nombre?`, ${nombre}`:""}<span style={{color:"#c9a84c"}}>.</span></h1>
+          <p style={{fontSize:"13px",color:"#9e9890",marginTop:"5px",letterSpacing:"0.02em"}}>¿Con qué módulo vas a trabajar hoy?</p>
+        </div>
+
+        {/* Módulos */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:"10px"}}>
+          {modulos.map(m=>(
+            <div key={m.id}
+              onClick={()=>m.activo&&m.acceso&&onSelectModulo(m.id)}
+              style={{
+                background:"#ffffff", borderRadius:"12px", padding:"20px 18px 16px",
+                cursor:m.activo&&m.acceso?"pointer":"default",
+                opacity:m.acceso?1:0.5,
+                border:"0.5px solid #ece6dd",
+                position:"relative", overflow:"hidden",
+                transition:"all 0.15s",
+              }}
+              onMouseEnter={e=>{ if(m.activo&&m.acceso){e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.06)";e.currentTarget.style.borderColor="#d4cec6";}}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor="#ece6dd";}}
+            >
+              {/* Línea color superior */}
+              <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:m.accentColor,borderRadius:"12px 12px 0 0"}}/>
+              {/* Ícono */}
+              <div style={{width:"36px",height:"36px",borderRadius:"8px",background:m.iconBg,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"14px",marginTop:"4px"}}>
+                {m.icon}
+              </div>
+              <div style={{fontSize:"13px",fontWeight:"500",color:"#1a1714",marginBottom:"3px"}}>{m.nombre}</div>
+              <div style={{fontSize:"11px",color:"#9e9890",lineHeight:"1.5",marginBottom:"14px"}}>{m.desc}</div>
+              <span style={{display:"inline-block",fontSize:"10px",fontWeight:"500",padding:"2px 8px",borderRadius:"20px",letterSpacing:"0.03em",background:m.badgeBg,color:m.badgeColor,border:`0.5px solid ${m.badgeBorder}`}}>
+                {m.activo?"Activo":"Próximamente"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{height:"0.5px",background:"#ece6dd",margin:"2.5rem 0 1.5rem"}}/>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontFamily:"Fraunces,serif",fontSize:"13px",color:"#1a1714"}}>Aura</div>
+            <div style={{fontSize:"9px",color:"#c9a84c",letterSpacing:"0.2em",fontStyle:"italic"}}>Brajá</div>
+          </div>
+          <button type="button" onClick={onLogout} style={{fontSize:"11px",color:"#b8b0a6",background:"none",border:"none",cursor:"pointer",letterSpacing:"0.04em"}}>Cerrar sesión</button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ── APP ──
+function App() {
+  const [token, setToken] = useState(()=>localStorage.getItem("gh_token")||"");
+  const [rol, setRol] = useState(()=>localStorage.getItem("gh_rol")||"");
+  const [userId, setUserId] = useState(()=>localStorage.getItem("gh_uid")||"");
+  const [modulosPermitidos, setModulosPermitidos] = useState(()=>{
+    const m = localStorage.getItem("gh_modulos");
+    return m ? JSON.parse(m) : ["formacion","biblioteca"];
+  });
+  const [moduloActivo, setModuloActivo] = useState("");
+  const [page, setPage] = useState("dashboard");
+  const [fichaActiva, setFichaActiva] = useState(null);
+  const [caps, setCaps] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
+  const [filtroEmpresa, setFiltroEmpresa] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const isAdmin = rol === "admin";
+
+  const login = async (tok, user) => {
+    localStorage.setItem("gh_token", tok);
+    localStorage.setItem("gh_uid", user.id);
+    setToken(tok);
+    setUserId(user.id);
+    const perfil = await fetchPerfil(user.id, tok);
+    localStorage.setItem("gh_rol", perfil.rol);
+    localStorage.setItem("gh_modulos", JSON.stringify(perfil.modulos || ["formacion","biblioteca"]));
+    setRol(perfil.rol);
+    setModulosPermitidos(perfil.modulos || ["formacion","biblioteca"]);
+  };
+  const logout = () => {
+    localStorage.removeItem("gh_token");
+    localStorage.removeItem("gh_rol");
+    localStorage.removeItem("gh_uid");
+    setToken(""); setRol(""); setUserId(""); setCaps([]); setEmpresas([]);
+    setModuloActivo(""); setModulosPermitidos(["formacion","biblioteca"]);
+    localStorage.removeItem("gh_modulos");
+  };
+
+  useEffect(()=>{ if(token) window.__aura_token = token; },[token]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [emps, capList] = await Promise.all([
+        api("empresas?select=*&order=nombre","",token),
+        api("capacitaciones?select=*&order=numero","",token),
+      ]);
+      setEmpresas(emps||[]);
+      setCaps(capList||[]);
+    } catch(e){ console.error(e); }
+    finally{ setLoading(false); }
+  };
+
+  useEffect(()=>{ if(token) loadData(); },[token]);
+
+  if(!token) return <Login onLogin={login}/>;
+  if(!moduloActivo) return <ModulosHome isAdmin={isAdmin} modulosPermitidos={modulosPermitidos} onSelectModulo={setModuloActivo} onLogout={logout} userName={isAdmin?"Mariale":""}/>;
+  if(moduloActivo === "biblioteca") return <ModuloBiblioteca token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
+
+  const filteredCaps = filtroEmpresa ? caps.filter(c=>c.empresa_id===filtroEmpresa) : caps;
+
+  return (
+    <div className="app-layout">
+      <div className="sidebar">
+        <div style={{padding:"20px 16px 12px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"20px"}}>
+            <div style={{width:"34px",height:"34px",background:"#c9a84c",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width="20" height="14" viewBox="0 0 52 38" fill="none"><path d="M4 34 A24 24 0 0 1 48 34" stroke="white" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 34 A16 16 0 0 1 40 34" stroke="white" strokeWidth="1.2" strokeLinecap="round"/><circle cx="26" cy="34" r="2.5" fill="white"/></svg>
+            </div>
+            <div>
+              <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"20px",lineHeight:"1.1",letterSpacing:"-0.02em",color:"#1a1714"}}>Aura</div>
+              <div style={{fontSize:"9px",color:"var(--accent)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:"3px",fontWeight:"600"}}>{isAdmin?"Admin":"Colaborador"}</div>
+            </div>
+          </div>
+          <div style={{marginBottom:"16px"}}>
+            <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em",paddingLeft:"4px"}}>Empresa</div>
+            <select value={filtroEmpresa} onChange={e=>setFiltroEmpresa(e.target.value)} style={{fontSize:"13px",padding:"7px 10px",background:"#ffffff",color:"#4a4540",border:"1px solid #e8e0d0",borderRadius:"8px"}}>
+              <option value="">Todas</option>
+              {empresas.map(e=><option key={e.id} value={e.id}>{e.nombre.split(" ").slice(0,2).join(" ")}</option>)}
+            </select>
+          </div>
+        </div>
+        <nav style={{flex:1,padding:"0 8px"}}>
+          <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em",paddingLeft:"8px"}}>Menú</div>
+          {[{id:"dashboard",label:"Inicio",icon:Ico.home},{id:"listado",label:"Capacitaciones",icon:Ico.list},...(isAdmin?[{id:"empresas",label:"Empresas",icon:Ico.building}]:[])].map(item=>(
+            <button key={item.id} type="button" className={`nav-item${page===item.id?" active":""}`} onClick={()=>{ setPage(item.id); setFichaActiva(null); }}>
+              {item.icon} {item.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:"12px 8px",borderTop:"1px solid #e8e0d0"}}>
+          <button type="button" onClick={()=>exportExcel(filteredCaps,empresas)} className="nav-item" style={{width:"100%"}}>
+            {Ico.download} Exportar Excel
+          </button>
+          <button type="button" onClick={()=>{ setModuloActivo(""); setFichaActiva(null); }} className="nav-item" style={{width:"100%"}}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M3 12l6-6M3 12l6 6"/></svg> Módulos
+          </button>
+          <button type="button" onClick={logout} className="nav-item" style={{width:"100%",color:"var(--danger)"}}>
+            {Ico.logout} Cerrar sesión
+          </button>
+        </div>
+      </div>
+      <div className="main">
+        {loading
+          ? <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",color:"var(--text3)"}}>Cargando datos…</div>
+          : page==="dashboard"
+            ? <Dashboard caps={filteredCaps} empresas={empresas} fichaActiva={fichaActiva} setFichaActiva={setFichaActiva}/>
+            : page==="empresas" && isAdmin
+              ? <Empresas empresas={empresas} token={token} onRefresh={loadData}/>
+              : <Listado caps={filteredCaps} empresas={empresas} token={token} onRefresh={loadData} isAdmin={isAdmin}/>
+        }
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
