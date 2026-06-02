@@ -1183,9 +1183,9 @@ function Listado({ caps, empresas, token, onRefresh, isAdmin=true }) {
           <h2 style={{fontSize:"24px",fontWeight:"700"}}>Capacitaciones</h2>
           <p style={{color:"var(--text2)",marginTop:"4px"}}>{filtered.length} de {caps.length} registros</p>
         </div>
-        {isAdmin && <button className="btn-primary" onClick={()=>setCreating(true)} style={{display:"flex",alignItems:"center",gap:"6px"}}>
+        <button className="btn-primary" onClick={()=>setCreating(true)} style={{display:"flex",alignItems:"center",gap:"6px"}}>
           {Ico.plus} Nueva capacitación
-        </button>}
+        </button>
       </div>
 
       {/* Filtros */}
