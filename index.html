@@ -1731,7 +1731,10 @@ function ModuloBiblioteca({ token, isAdmin, onBack, onLogout }) {
                       return (
                         <tr key={p.id}>
                           <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",fontWeight:"500",whiteSpace:"nowrap"}}>{lib?.titulo||"—"}</td>
-                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",whiteSpace:"nowrap"}}>{p.nombre_lector}</td>
+                          <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",whiteSpace:"nowrap"}}>
+                            {p.nombre_lector}
+                            {p.sancionado && <div style={{fontSize:"10px",color:"#dc2626",fontWeight:"500",marginTop:"2px"}}>🚫 Sancionado hasta {p.fecha_sancion_fin}</div>}
+                          </td>
                           <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.cedula||"—"}</td>
                           <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.cargo||"—"}</td>
                           <td style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.empresa||"—"}</td>
@@ -1888,10 +1891,44 @@ function FormPrestamo({ data, libros, empleados=[], token, onSave, onClose, apiB
     setLoading(true); setErr("");
     try {
       if(isDevolucion) {
+        // Check if late — calculate sanction
+        const fechaEsperada = new Date(data.fecha_devolucion_esperada);
+        const fechaReal = new Date(form.fecha_devolucion_real);
+        const esTardio = data.fecha_devolucion_esperada && fechaReal > fechaEsperada;
+        let fechaSancionFin = null;
+        if(esTardio) {
+          const sancion = new Date(form.fecha_devolucion_real);
+          sancion.setMonth(sancion.getMonth() + 3);
+          fechaSancionFin = sancion.toISOString().slice(0,10);
+          // Update empleado with sancion
+          const emp = empleados.find(e=>e.cedula===data.cedula||e.nombre===data.nombre_lector);
+          if(emp) {
+            await apiB(`empleados?id=eq.${emp.id}`, {
+              method:"PATCH",
+              body:JSON.stringify({sancionado:true, fecha_sancion_fin:fechaSancionFin})
+            });
+          }
+        }
         await apiB(`prestamos?id=eq.${data.id}`, {
           method:"PATCH",
-          body:JSON.stringify({estado:"Devuelto", fecha_devolucion_real:form.fecha_devolucion_real, observaciones:form.observaciones})
+          body:JSON.stringify({
+            estado:"Devuelto",
+            fecha_devolucion_real:form.fecha_devolucion_real,
+            observaciones:form.observaciones,
+            sancionado:esTardio,
+            fecha_sancion_fin:fechaSancionFin
+          })
         });
+        if(esTardio) {
+          const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+          const d = new Date(fechaSancionFin);
+          alert(`⚠️ Devolución tardía registrada.
+
+Se aplica sanción de 3 meses.
+
+El usuario podrá volver a solicitar préstamos a partir del:
+📅 ${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()}`);
+        }
       } else {
         if(!form.libro_id||!form.nombre_lector){ setErr("Libro y lector son obligatorios."); setLoading(false); return; }
         await apiB("prestamos", {method:"POST", body:JSON.stringify({
@@ -1925,7 +1962,28 @@ function FormPrestamo({ data, libros, empleados=[], token, onSave, onClose, apiB
                 <div style={{fontSize:"15px",fontWeight:"600",color:"var(--text)"}}>{lib?.titulo}</div>
                 <div style={{fontSize:"13px",color:"var(--text2)",marginTop:"2px"}}>Prestado a: {data.nombre_lector}</div>
               </div>
-              <div className="field"><label className="label">Fecha de devolución real</label><input type="date" value={form.fecha_devolucion_real} onChange={e=>set("fecha_devolucion_real",e.target.value)}/></div>
+              <div className="field"><label className="label">Fecha de devolución real</label>
+                <input type="date" value={form.fecha_devolucion_real} onChange={e=>set("fecha_devolucion_real",e.target.value)}/>
+                {form.fecha_devolucion_real && data.fecha_devolucion_esperada && (()=>{
+                  const esperada = new Date(data.fecha_devolucion_esperada);
+                  const real = new Date(form.fecha_devolucion_real);
+                  if(real <= esperada) return (
+                    <div style={{fontSize:"12px",color:"#059669",marginTop:"6px",fontWeight:"500"}}>✓ Devolución a tiempo — sin sanción</div>
+                  );
+                  const sancion = new Date(form.fecha_devolucion_real);
+                  sancion.setMonth(sancion.getMonth()+3);
+                  const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+                  return (
+                    <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:"8px",padding:"12px",marginTop:"8px"}}>
+                      <div style={{fontSize:"12px",fontWeight:"600",color:"#991b1b",marginBottom:"4px"}}>⚠️ Devolución tardía — se aplicará sanción</div>
+                      <div style={{fontSize:"12px",color:"#dc2626"}}>Sanción: 3 meses de suspensión</div>
+                      <div style={{fontSize:"13px",fontWeight:"600",color:"#991b1b",marginTop:"6px"}}>
+                        Podrá solicitar préstamos a partir del: {sancion.getDate()} de {meses[sancion.getMonth()]} de {sancion.getFullYear()}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
               <div className="field"><label className="label">Observaciones</label><textarea value={form.observaciones} onChange={e=>set("observaciones",e.target.value)} rows={2}/></div>
             </>
           ) : (
@@ -1941,7 +1999,20 @@ function FormPrestamo({ data, libros, empleados=[], token, onSave, onClose, apiB
                 <div className="field">
                 <label className="label">Cédula</label>
                 <input value={form.cedula} onChange={e=>buscarEmpleado(e.target.value)} placeholder="Ingresa la cédula para autocompletar"/>
-                {(()=>{const emp=empleados.find(e=>e.cedula===form.cedula); if(!emp) return null; return <div style={{fontSize:"11px",marginTop:"4px",color:emp.activo!==false?"#059669":"#dc2626",fontWeight:"500"}}>{emp.activo!==false?"✓ Empleado encontrado · Activo":"⚠ Empleado encontrado · Inactivo (retirado)"}</div>; })()}
+                {(()=>{const emp=empleados.find(e=>e.cedula===form.cedula); if(!emp) return null; 
+                  if(emp.sancionado && emp.fecha_sancion_fin) {
+                    const hoy = new Date();
+                    const finSancion = new Date(emp.fecha_sancion_fin);
+                    if(finSancion > hoy) {
+                      const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+                      return <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:"6px",padding:"8px",marginTop:"6px"}}>
+                        <div style={{fontSize:"11px",fontWeight:"600",color:"#991b1b"}}>🚫 Usuario sancionado</div>
+                        <div style={{fontSize:"11px",color:"#dc2626",marginTop:"2px"}}>No puede solicitar préstamos hasta el {finSancion.getDate()} de {meses[finSancion.getMonth()]} de {finSancion.getFullYear()}</div>
+                      </div>;
+                    }
+                  }
+                  return <div style={{fontSize:"11px",marginTop:"4px",color:emp.activo!==false?"#059669":"#dc2626",fontWeight:"500"}}>{emp.activo!==false?"✓ Empleado encontrado · Activo":"⚠ Empleado encontrado · Inactivo (retirado)"}</div>;
+                })()}
               </div>
                 <div className="field"><label className="label">Cargo</label><input value={form.cargo} onChange={e=>set("cargo",e.target.value)}/></div>
               </div>
@@ -1958,8 +2029,21 @@ function FormPrestamo({ data, libros, empleados=[], token, onSave, onClose, apiB
                 <div className="field"><label className="label">Correo o celular</label><input value={form.contacto} onChange={e=>set("contacto",e.target.value)}/></div>
               </div>
               <div className="grid2">
-                <div className="field"><label className="label">Fecha de préstamo</label><input type="date" value={form.fecha_prestamo} onChange={e=>set("fecha_prestamo",e.target.value)}/></div>
-                <div className="field"><label className="label">Fecha devolución esperada</label><input type="date" value={form.fecha_devolucion_esperada} onChange={e=>set("fecha_devolucion_esperada",e.target.value)}/></div>
+                <div className="field"><label className="label">Fecha de préstamo</label>
+                <input type="date" value={form.fecha_prestamo} onChange={e=>{
+                  const fp = e.target.value;
+                  set("fecha_prestamo", fp);
+                  if(fp) {
+                    const fd = new Date(fp);
+                    fd.setMonth(fd.getMonth() + 2);
+                    set("fecha_devolucion_esperada", fd.toISOString().slice(0,10));
+                  }
+                }}/>
+              </div>
+              <div className="field">
+                <label className="label">Fecha devolución esperada <span style={{fontSize:"10px",color:"#c9a84c",fontWeight:"500"}}>· Calculada automáticamente (2 meses)</span></label>
+                <input type="date" value={form.fecha_devolucion_esperada} onChange={e=>set("fecha_devolucion_esperada",e.target.value)} style={{color:"#a8893a"}}/>
+              </div>
               </div>
               <div className="field"><label className="label">Observaciones</label><textarea value={form.observaciones} onChange={e=>set("observaciones",e.target.value)} rows={2}/></div>
             </>
