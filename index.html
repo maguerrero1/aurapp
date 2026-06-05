@@ -928,9 +928,18 @@ function CapForm({ cap, empresas, token, onSave, onClose }) {
       if(!form.nombre.trim()) throw new Error("El nombre es obligatorio.");
       // Eficacia es opcional al ejecutar — se completa al cierre del mes
       const payload = {...form};
+      // Fix integer fields — send null instead of empty string
+      if(!payload.numero || payload.numero === "") payload.numero = null;
+      else payload.numero = parseInt(payload.numero) || null;
       if(!payload.mes_programado) payload.mes_programado=null;
       if(!payload.fecha_ejecucion) payload.fecha_ejecucion=null;
       if(!payload.eficacia_fecha) payload.eficacia_fecha=null;
+      if(!payload.trabajadores_programados || payload.trabajadores_programados === "") payload.trabajadores_programados = null;
+      else payload.trabajadores_programados = parseInt(payload.trabajadores_programados) || null;
+      if(!payload.trabajadores_asistieron || payload.trabajadores_asistieron === "") payload.trabajadores_asistieron = null;
+      else payload.trabajadores_asistieron = parseInt(payload.trabajadores_asistieron) || null;
+      if(!payload.costo || payload.costo === "") payload.costo = 0;
+      else payload.costo = parseFloat(payload.costo) || 0;
       payload.updated_at = new Date().toISOString();
 
       let capId = cap?.id;
