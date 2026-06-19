@@ -484,7 +484,9 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
   const generarAnalisis = async () => {
     if(!empresaId) { alert("Selecciona una empresa antes de generar el análisis."); return; }
     setGenerando(true);
-    const ejemplos = isCumplimiento ? `\nEjemplos del tono y estilo esperado (para la empresa ${empNombre}):\n- Sin ejecución: "Durante el mes de [mes] no se programaron ni ejecutaron capacitaciones en [empresa], debido a que el área se encontraba realizando el diagnóstico de necesidades de formación."\n- 100%: "Durante el mes de [mes] se programaron [N] formaciones en [empresa], las cuales fueron ejecutadas en su totalidad, alcanzando un cumplimiento del 100%."\n- Parcial: "Durante el mes de [mes] se ejecutaron [N] de las [M] capacitaciones programadas en [empresa], alcanzando un cumplimiento del [X]%."` : "";\n\n    const prompt = `Eres analista de gestión humana. Genera un análisis profesional y natural (máximo 4 oraciones) para el indicador "${fichaData.nombre}" en la empresa ${empNombre}:\n- Período: ${periodoKey}\n- Resultado: ${fichaData.denominador > 0 ? resultado+"%" : "Sin datos"}\n- Meta: ${meta}%\n- Estado: ${fichaData.denominador > 0 ? (cumpleMeta ? "CUMPLE" : "NO cumple") : "Sin datos"}\n- Numerador: ${fichaData.numerador} ${fichaData.labelNum.toLowerCase()}\n- Denominador: ${fichaData.denominador} ${fichaData.labelDen.toLowerCase()}\n${ejemplos}\nEscribe SOLO el análisis en español, párrafo corrido, sin títulos. Tono profesional pero natural.\nLuego en nueva línea escribe "ACCIONES:" seguido de 1-2 acciones concretas.`;
+    const ejemplos = isCumplimiento ? "\nEjemplos del tono y estilo esperado (para la empresa " + empNombre + "):\n- Sin ejecucion: 'Durante el mes de [mes] no se programaron ni ejecutaron capacitaciones en [empresa], debido a que el area se encontraba realizando el diagnostico de necesidades de formacion.'\n- 100%: 'Durante el mes de [mes] se programaron [N] formaciones en [empresa], las cuales fueron ejecutadas en su totalidad, alcanzando un cumplimiento del 100%.'\n- Parcial: 'Durante el mes de [mes] se ejecutaron [N] de las [M] capacitaciones programadas en [empresa], alcanzando un cumplimiento del [X]%.'" : "";
+
+    const prompt = "Eres analista de gestion humana. Genera un analisis profesional y natural (maximo 4 oraciones) para el indicador '" + fichaData.nombre + "' en la empresa " + empNombre + ":\n- Periodo: " + periodoKey + "\n- Resultado: " + (fichaData.denominador > 0 ? resultado+"%" : "Sin datos") + "\n- Meta: " + meta + "%\n- Estado: " + (fichaData.denominador > 0 ? (cumpleMeta ? "CUMPLE" : "NO cumple") : "Sin datos") + "\n- Numerador: " + fichaData.numerador + " " + fichaData.labelNum.toLowerCase() + "\n- Denominador: " + fichaData.denominador + " " + fichaData.labelDen.toLowerCase() + "\n" + ejemplos + "\nEscribe SOLO el analisis en espanol, parrafo corrido, sin titulos. Tono profesional pero natural.\nLuego en nueva linea escribe \"ACCIONES:\" seguido de 1-2 acciones concretas.";
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -852,7 +854,256 @@ function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
                   const d = new Date(c.mes_programado);
                   return `• ${MESES[d.getMonth()]} | ${c.nombre} | Responsable: ${c.responsable||"—"} | Dirigido a: ${c.dirigido_a||"—"} [${emp?.codigo||""}]`;
                 }).join("\n");
-                const texto = `Plan de Formación 2026 — Próximas capacitaciones\n\n${lineas}\n\nPor favor confirmar disponibilidad y coordinar la logística correspondiente.`;\n                navigator.clipboard.writeText(texto).then(()=>alert("✓ Texto copiado al portapapeles. Pégalo en tu correo.")).catch(()=>alert(texto));\n              }} style={{background:"#c9a84c",color:"#0d0d0d",border:"none",borderRadius:"8px",padding:"7px 14px",fontSize:"12px",fontWeight:"600",cursor:"pointer"}}>\n                Copiar para correo\n              </button>\n            </div>\n            <div className="table-wrap">\n              <table>\n                <thead><tr>\n                  <th>Mes</th><th>Capacitación</th><th>Empresa</th><th>Responsable</th><th>Dirigido a</th><th>Estado</th>\n                </tr></thead>\n                <tbody>\n                  {proximas.map(c=>{\n                    const emp = empresas.find(e=>e.id===c.empresa_id);\n                    const d = new Date(c.mes_programado);\n                    return (\n                      <tr key={c.id}>\n                        <td style={{fontWeight:"600",color:"#c9a84c",whiteSpace:"nowrap"}}>{MESES[d.getMonth()].slice(0,3)}</td>\n                        <td style={{maxWidth:"200px"}}>\n                          <div style={{fontWeight:"500",fontSize:"13px",lineHeight:"1.3"}}>{c.nombre.length>55?c.nombre.slice(0,55)+"…":c.nombre}</div>\n                          {c.componente && <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"1px"}}>{c.componente.split("(")[0].trim()}</div>}\n                        </td>\n                        <td><span style={{fontSize:"11px",background:"#fdf8ec",color:"#6b4e1a",padding:"2px 7px",borderRadius:"20px",fontWeight:"600"}}>{emp?.codigo||"—"}</span></td>\n                        <td style={{fontSize:"13px"}}>{c.responsable||"—"}</td>\n                        <td style={{fontSize:"12px",color:"var(--text2)",maxWidth:"160px"}}>{c.dirigido_a?c.dirigido_a.slice(0,50)+(c.dirigido_a.length>50?"…":""):"—"}</td>\n                        <td><span className="badge" style={{background:estadoBg[c.estado],color:estadoColor[c.estado]}}>{c.estado}</span></td>\n                      </tr>\n                    );\n                  })}\n                </tbody>\n              </table>\n            </div>\n          </div>\n        );\n      })()}\n    </div>\n  );\n}\n// ── FORMULARIO ──\nfunction CapForm({ cap, empresas, token, onSave, onClose }) {\n  const isNew = !cap?.id;\n  const blank = {numero:null,empresa_id:empresas[0]?.id||"",nombre:"",objetivo:"",linea:"",componente:"",tipo_formacion:"",categoria:"Interna",dirigido_a:"",responsable:"",intensidad:"",estado:"Sin iniciar",porcentaje_avance:0,mes_programado:"",fecha_ejecucion:"",trabajadores_programados:"",trabajadores_asistieron:"",costo:0,fuente_recursos:[],seguimiento:"",eficacia_fecha:"",eficacia_metodo:"",eficacia_responsable:"",fue_eficaz:null};\n  const [form, setForm] = useState(cap ? {...blank,...cap, fuente_recursos:cap.fuente_recursos||[], mes_programado:cap.mes_programado||"", fecha_ejecucion:cap.fecha_ejecucion||"", eficacia_fecha:cap.eficacia_fecha||""} : blank);\n  const [evidencias, setEvidencias] = useState([]);\n  const [existingEvid, setExistingEvid] = useState([]);\n  const [loading, setLoading] = useState(false);\n  const [err, setErr] = useState("");\n\n  useEffect(()=>{\n    if(cap?.id) api(`evidencias?capacitacion_id=eq.${cap.id}&select=*`,"",token).then(r=>setExistingEvid(r||[])).catch(()=>{});\n  },[cap?.id]);\n\n  const set = (k,v) => setForm(f=>({...f,[k]:v}));\n  const toggleFuente = f => { const arr=form.fuente_recursos||[]; set("fuente_recursos", arr.includes(f)?arr.filter(x=>x!==f):[...arr,f]); };\n\n  const save = async () => {\n    setErr(""); setLoading(true);\n    try {\n      if(!form.nombre.trim()) throw new Error("El nombre es obligatorio.");\n      // Eficacia es opcional al ejecutar — se completa al cierre del mes\n      const payload = {...form};\n      // Fix integer fields — send null instead of empty string\n      if(!payload.numero || payload.numero === "") payload.numero = null;\n      else payload.numero = parseInt(payload.numero) || null;\n      if(!payload.mes_programado) payload.mes_programado=null;\n      if(!payload.fecha_ejecucion) payload.fecha_ejecucion=null;\n      if(!payload.eficacia_fecha) payload.eficacia_fecha=null;\n      if(!payload.trabajadores_programados || payload.trabajadores_programados === "") payload.trabajadores_programados = null;\n      else payload.trabajadores_programados = parseInt(payload.trabajadores_programados) || null;\n      if(!payload.trabajadores_asistieron || payload.trabajadores_asistieron === "") payload.trabajadores_asistieron = null;\n      else payload.trabajadores_asistieron = parseInt(payload.trabajadores_asistieron) || null;\n      if(!payload.costo || payload.costo === "") payload.costo = 0;\n      else payload.costo = parseFloat(payload.costo) || 0;\n      payload.updated_at = new Date().toISOString();\n\n      let capId = cap?.id;\n      if(isNew){\n        const [created] = await api("capacitaciones",{method:"POST",body:JSON.stringify(payload)},token);\n        capId = created.id;\n      } else {\n        await api(`capacitaciones?id=eq.${cap.id}`,{method:"PATCH",body:JSON.stringify(payload)},token);\n      }\n\n      for(const ev of evidencias){\n        const path = `${capId}/${Date.now()}_${ev.file.name}`;\n        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/evidencias/${path}`,{\n          method:"POST", headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`,"Content-Type":ev.file.type}, body:ev.file\n        });\n        if(uploadRes.ok){\n          const url = `${SUPABASE_URL}/storage/v1/object/evidencias/${path}`;\n          await api("evidencias",{method:"POST",body:JSON.stringify({capacitacion_id:capId,tipo:ev.tipo,nombre_archivo:ev.file.name,url})},token);\n        }\n      }\n      onSave();\n    } catch(e){ setErr(e.message); }\n    finally{ setLoading(false); }\n  };\n\n  const deleteEvid = async id => {\n    if(!confirm("¿Eliminar esta evidencia?")) return;\n    await api(`evidencias?id=eq.${id}`,{method:"DELETE",prefer:"return=minimal"},token);\n    setExistingEvid(p=>p.filter(e=>e.id!==id));\n  };\n\n  return (\n    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>\n      <div className="modal">\n        <div className="modal-header">\n          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nueva capacitación":"Editar capacitación"}</h3>\n          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>\n        </div>\n        <div className="modal-body">\n          {err && <div className="alert alert-err">{err}</div>}\n          <div className="grid2">\n            <div className="field"><label className="label">Empresa *</label>\n              <select value={form.empresa_id} onChange={e=>set("empresa_id",e.target.value)}>\n                {empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}\n              </select>\n            </div>\n          </div>\n          <div className="field"><label className="label">Nombre de la capacitación *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej: Riesgo químico"/></div>\n          <div className="grid2">\n            <div className="field"><label className="label">Línea</label>\n              <select value={form.linea} onChange={e=>set("linea",e.target.value)}>\n                <option value="">— Seleccionar —</option>\n                {LINEAS.map(l=><option key={l} value={l}>{l.split(":")[0]}</option>)}\n              </select>\n            </div>\n            <div className="field"><label className="label">Componente</label>\n              <select value={form.componente} onChange={e=>set("componente",e.target.value)}>\n                <option value="">— Seleccionar —</option>\n                {COMPONENTES.map(c=><option key={c} value={c}>{c}</option>)}\n              </select>\n            </div>\n          </div>\n          <div className="grid3">\n            <div className="field"><label className="label">Tipo de formación</label>\n              <select value={form.tipo_formacion} onChange={e=>set("tipo_formacion",e.target.value)}>\n                <option value="">— Seleccionar —</option>\n                {TIPOS.map(t=><option key={t} value={t}>{t}</option>)}\n              </select>\n            </div>\n            <div className="field"><label className="label">Categoría</label>\n              <select value={form.categoria} onChange={e=>set("categoria",e.target.value)}><option>Interna</option><option>Externa</option></select>\n            </div>\n            <div className="field"><label className="label">Intensidad (horas)</label><input value={form.intensidad} onChange={e=>set("intensidad",e.target.value)} placeholder="Ej: 8 horas"/></div>\n          </div>\n          <div className="grid2">\n            <div className="field"><label className="label">Dirigido a</label><input value={form.dirigido_a} onChange={e=>set("dirigido_a",e.target.value)} placeholder="Ej: Todo el personal"/></div>\n            <div className="field"><label className="label">Responsable</label><input value={form.responsable} onChange={e=>set("responsable",e.target.value)} placeholder="Nombre del responsable"/></div>\n          </div>\n          <div className="field"><label className="label">Objetivo (opcional)</label><textarea value={form.objetivo} onChange={e=>set("objetivo",e.target.value)} placeholder="Describe el objetivo…" rows={2}/></div>\n\n          <div className="section-title">Cronograma y asistencia</div>\n          <div className="grid3">\n            <div className="field"><label className="label">Estado</label>\n              <select value={form.estado} onChange={e=>set("estado",e.target.value)}>\n                {ESTADOS.map(s=><option key={s} value={s}>{s}</option>)}\n              </select>\n            </div>\n            <div className="field"><label className="label">Mes programado</label><input type="date" value={form.mes_programado} onChange={e=>set("mes_programado",e.target.value)}/></div>\n            <div className="field"><label className="label">Fecha de ejecución</label><input type="date" value={form.fecha_ejecucion} onChange={e=>set("fecha_ejecucion",e.target.value)}/></div>\n          </div>\n          <div className="grid2">\n            <div className="field"><label className="label">Trabajadores programados</label><input type="number" value={form.trabajadores_programados} onChange={e=>set("trabajadores_programados",e.target.value)}/></div>\n            <div className="field"><label className="label">Trabajadores que asistieron</label><input type="number" value={form.trabajadores_asistieron} onChange={e=>set("trabajadores_asistieron",e.target.value)}/></div>\n          </div>\n          <div className="field"><label className="label">Seguimiento / notas</label><textarea value={form.seguimiento} onChange={e=>set("seguimiento",e.target.value)} placeholder="Observaciones…" rows={2}/></div>\n\n          <div className="section-title">Información financiera</div>\n          <div className="grid2">\n            <div className="field"><label className="label">Costo ($)</label><input type="number" value={form.costo} onChange={e=>set("costo",e.target.value)}/></div>\n            <div className="field"><label className="label">Fuente de recursos</label>\n              <div className="chip-group" style={{marginTop:"4px"}}>\n                {FUENTES.map(f=><button key={f} type="button" className={`chip${(form.fuente_recursos||[]).includes(f)?" active":""}`} onClick={()=>toggleFuente(f)}>{f}</button>)}\n              </div>\n            </div>\n          </div>\n\n          {form.estado==="Ejecutada" && <>\n            <div className="section-title">Eficacia <span style={{color:"var(--warn)"}}>*</span></div>\n            {(!form.eficacia_fecha||!form.eficacia_metodo||!form.eficacia_responsable) && <div className="alert" style={{background:"#eff6ff",border:"1px solid #93c5fd",color:"#1e40af",fontSize:"13px",marginBottom:"14px"}}>Puedes completar la eficacia al cierre del mes. Mientras tanto la capacitación queda marcada como <strong>Eficacia pendiente</strong>.</div>}\n            <div className="grid3">\n              <div className="field"><label className="label">Fecha de verificación *</label><input type="date" value={form.eficacia_fecha} onChange={e=>set("eficacia_fecha",e.target.value)}/></div>\n              <div className="field"><label className="label">Método de evaluación *</label><input value={form.eficacia_metodo} onChange={e=>set("eficacia_metodo",e.target.value)} placeholder="Ej: Evaluación de conocimientos"/></div>\n              <div className="field"><label className="label">Responsable medición *</label><input value={form.eficacia_responsable} onChange={e=>set("eficacia_responsable",e.target.value)} placeholder="Nombre"/></div>\n            </div>\n            <div className="field" style={{marginTop:"8px"}}>\n              <label style={{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer",padding:"12px 16px",background:form.fue_eficaz?"#fdf8ec":"var(--surface2)",border:"1px solid",borderColor:form.fue_eficaz?"#c9a84c":"var(--border)",borderRadius:"var(--radius)",transition:"all 0.15s"}}>\n                <input type="checkbox" checked={form.fue_eficaz===true} onChange={e=>set("fue_eficaz",e.target.checked?true:null)} style={{width:"18px",height:"18px",accentColor:"#2d5016",cursor:"pointer"}}/>\n                <span style={{fontSize:"14px",fontWeight:"500",color:form.fue_eficaz?"#6b4e1a":"var(--text2)"}}>\n                  {form.fue_eficaz ? "✓ Capacitación eficaz" : "¿Fue eficaz esta capacitación?"}\n                </span>\n              </label>\n            </div>\n          </>}\n\n          <div className="section-title">Evidencias</div>\n          {existingEvid.length>0 && <div style={{marginBottom:"12px"}}>\n            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"6px",fontWeight:"600"}}>Archivos cargados</div>\n            {existingEvid.map(ev=>(\n              <div key={ev.id} className="file-item">\n                <span style={{display:"flex",alignItems:"center",gap:"6px"}}>{Ico.file} {ev.nombre_archivo} <span style={{fontSize:"11px",color:"var(--text3)"}}>({ev.tipo})</span></span>\n                <div style={{display:"flex",gap:"10px",alignItems:"center"}}>\n                  <a href={ev.url} target="_blank" rel="noreferrer" style={{fontSize:"12px",color:"var(--accent2)"}}>Ver</a>\n                  <button type="button" onClick={()=>deleteEvid(ev.id)} style={{background:"none",color:"var(--danger)",padding:"0"}}>{Ico.trash}</button>\n                </div>\n              </div>\n            ))}\n          </div>}\n          {TIPOS_EVIDENCIA.map(({key,label})=>{\n            const pending = evidencias.find(e=>e.tipo===key);\n            return (\n              <div key={key} style={{marginBottom:"10px"}}>\n                <label className="label">{label}</label>\n                <label className="upload-zone">\n                  <input type="file" style={{display:"none"}} onChange={e=>{ const f=e.target.files[0]; if(f) setEvidencias(p=>[...p.filter(x=>x.tipo!==key),{tipo:key,file:f}]); }} accept=".pdf,.png,.jpg,.jpeg,.pptx,.xlsx,.docx"/>\n                  {pending\n                    ? <div style={{fontSize:"13px",color:"var(--accent)"}}>{Ico.file} {pending.file.name}</div>\n                    : <div style={{color:"var(--text3)",fontSize:"13px"}}>{Ico.upload}<br/>Haz clic para subir {label.toLowerCase()}</div>}\n                </label>\n              </div>\n            );\n          })}\n        </div>\n        <div className="modal-footer">\n          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>\n          <button type="button" className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── LISTADO ──\nfunction Listado({ caps, empresas, token, onRefresh, isAdmin=true }) {\n  const [search, setSearch] = useState("");\n  const [filtEst, setFiltEst] = useState("");\n  const [mesesAbiertos, setMesesAbiertos] = useState({});\n  const [empresasAbiertas, setEmpresasAbiertas] = useState({});\n  const [editing, setEditing] = useState(null);\n  const [creating, setCreating] = useState(false);\n  const [evidCounts, setEvidCounts] = useState({});\n\n  useEffect(()=>{\n    const ejecutadas = caps.filter(c=>\n      c.estado==="Ejecutada" && c.eficacia_fecha && c.eficacia_metodo && c.eficacia_responsable\n    );\n    if(ejecutadas.length === 0) { setEvidCounts({}); return; }\n    const ids = ejecutadas.map(c=>`"${c.id}"`).join(',');
+                const texto = "Plan de Formacion 2026 - Proximas capacitaciones\n\n" + lineas + "\n\nPor favor confirmar disponibilidad y coordinar la logistica correspondiente.";
+                navigator.clipboard.writeText(texto).then(()=>alert("Texto copiado al portapapeles. Pegalo en tu correo.")).catch(()=>alert(texto));
+              }} style={{background:"#c9a84c",color:"#0d0d0d",border:"none",borderRadius:"8px",padding:"7px 14px",fontSize:"12px",fontWeight:"600",cursor:"pointer"}}>
+                Copiar para correo
+              </button>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr>
+                  <th>Mes</th><th>Capacitación</th><th>Empresa</th><th>Responsable</th><th>Dirigido a</th><th>Estado</th>
+                </tr></thead>
+                <tbody>
+                  {proximas.map(c=>{
+                    const emp = empresas.find(e=>e.id===c.empresa_id);
+                    const d = new Date(c.mes_programado);
+                    return (
+                      <tr key={c.id}>
+                        <td style={{fontWeight:"600",color:"#c9a84c",whiteSpace:"nowrap"}}>{MESES[d.getMonth()].slice(0,3)}</td>
+                        <td style={{maxWidth:"200px"}}>
+                          <div style={{fontWeight:"500",fontSize:"13px",lineHeight:"1.3"}}>{c.nombre.length>55?c.nombre.slice(0,55)+"…":c.nombre}</div>
+                          {c.componente && <div style={{fontSize:"11px",color:"var(--text3)",marginTop:"1px"}}>{c.componente.split("(")[0].trim()}</div>}
+                        </td>
+                        <td><span style={{fontSize:"11px",background:"#fdf8ec",color:"#6b4e1a",padding:"2px 7px",borderRadius:"20px",fontWeight:"600"}}>{emp?.codigo||"—"}</span></td>
+                        <td style={{fontSize:"13px"}}>{c.responsable||"—"}</td>
+                        <td style={{fontSize:"12px",color:"var(--text2)",maxWidth:"160px"}}>{c.dirigido_a?c.dirigido_a.slice(0,50)+(c.dirigido_a.length>50?"…":""):"—"}</td>
+                        <td><span className="badge" style={{background:estadoBg[c.estado],color:estadoColor[c.estado]}}>{c.estado}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+// ── FORMULARIO ──
+function CapForm({ cap, empresas, token, onSave, onClose }) {
+  const isNew = !cap?.id;
+  const blank = {numero:null,empresa_id:empresas[0]?.id||"",nombre:"",objetivo:"",linea:"",componente:"",tipo_formacion:"",categoria:"Interna",dirigido_a:"",responsable:"",intensidad:"",estado:"Sin iniciar",porcentaje_avance:0,mes_programado:"",fecha_ejecucion:"",trabajadores_programados:"",trabajadores_asistieron:"",costo:0,fuente_recursos:[],seguimiento:"",eficacia_fecha:"",eficacia_metodo:"",eficacia_responsable:"",fue_eficaz:null};
+  const [form, setForm] = useState(cap ? {...blank,...cap, fuente_recursos:cap.fuente_recursos||[], mes_programado:cap.mes_programado||"", fecha_ejecucion:cap.fecha_ejecucion||"", eficacia_fecha:cap.eficacia_fecha||""} : blank);
+  const [evidencias, setEvidencias] = useState([]);
+  const [existingEvid, setExistingEvid] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(()=>{
+    if(cap?.id) api(`evidencias?capacitacion_id=eq.${cap.id}&select=*`,"",token).then(r=>setExistingEvid(r||[])).catch(()=>{});
+  },[cap?.id]);
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const toggleFuente = f => { const arr=form.fuente_recursos||[]; set("fuente_recursos", arr.includes(f)?arr.filter(x=>x!==f):[...arr,f]); };
+
+  const save = async () => {
+    setErr(""); setLoading(true);
+    try {
+      if(!form.nombre.trim()) throw new Error("El nombre es obligatorio.");
+      // Eficacia es opcional al ejecutar — se completa al cierre del mes
+      const payload = {...form};
+      // Fix integer fields — send null instead of empty string
+      if(!payload.numero || payload.numero === "") payload.numero = null;
+      else payload.numero = parseInt(payload.numero) || null;
+      if(!payload.mes_programado) payload.mes_programado=null;
+      if(!payload.fecha_ejecucion) payload.fecha_ejecucion=null;
+      if(!payload.eficacia_fecha) payload.eficacia_fecha=null;
+      if(!payload.trabajadores_programados || payload.trabajadores_programados === "") payload.trabajadores_programados = null;
+      else payload.trabajadores_programados = parseInt(payload.trabajadores_programados) || null;
+      if(!payload.trabajadores_asistieron || payload.trabajadores_asistieron === "") payload.trabajadores_asistieron = null;
+      else payload.trabajadores_asistieron = parseInt(payload.trabajadores_asistieron) || null;
+      if(!payload.costo || payload.costo === "") payload.costo = 0;
+      else payload.costo = parseFloat(payload.costo) || 0;
+      payload.updated_at = new Date().toISOString();
+
+      let capId = cap?.id;
+      if(isNew){
+        const [created] = await api("capacitaciones",{method:"POST",body:JSON.stringify(payload)},token);
+        capId = created.id;
+      } else {
+        await api(`capacitaciones?id=eq.${cap.id}`,{method:"PATCH",body:JSON.stringify(payload)},token);
+      }
+
+      for(const ev of evidencias){
+        const path = `${capId}/${Date.now()}_${ev.file.name}`;
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/evidencias/${path}`,{
+          method:"POST", headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`,"Content-Type":ev.file.type}, body:ev.file
+        });
+        if(uploadRes.ok){
+          const url = `${SUPABASE_URL}/storage/v1/object/evidencias/${path}`;
+          await api("evidencias",{method:"POST",body:JSON.stringify({capacitacion_id:capId,tipo:ev.tipo,nombre_archivo:ev.file.name,url})},token);
+        }
+      }
+      onSave();
+    } catch(e){ setErr(e.message); }
+    finally{ setLoading(false); }
+  };
+
+  const deleteEvid = async id => {
+    if(!confirm("¿Eliminar esta evidencia?")) return;
+    await api(`evidencias?id=eq.${id}`,{method:"DELETE",prefer:"return=minimal"},token);
+    setExistingEvid(p=>p.filter(e=>e.id!==id));
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nueva capacitación":"Editar capacitación"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          <div className="grid2">
+            <div className="field"><label className="label">Empresa *</label>
+              <select value={form.empresa_id} onChange={e=>set("empresa_id",e.target.value)}>
+                {empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="field"><label className="label">Nombre de la capacitación *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej: Riesgo químico"/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Línea</label>
+              <select value={form.linea} onChange={e=>set("linea",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {LINEAS.map(l=><option key={l} value={l}>{l.split(":")[0]}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Componente</label>
+              <select value={form.componente} onChange={e=>set("componente",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {COMPONENTES.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid3">
+            <div className="field"><label className="label">Tipo de formación</label>
+              <select value={form.tipo_formacion} onChange={e=>set("tipo_formacion",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Categoría</label>
+              <select value={form.categoria} onChange={e=>set("categoria",e.target.value)}><option>Interna</option><option>Externa</option></select>
+            </div>
+            <div className="field"><label className="label">Intensidad (horas)</label><input value={form.intensidad} onChange={e=>set("intensidad",e.target.value)} placeholder="Ej: 8 horas"/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Dirigido a</label><input value={form.dirigido_a} onChange={e=>set("dirigido_a",e.target.value)} placeholder="Ej: Todo el personal"/></div>
+            <div className="field"><label className="label">Responsable</label><input value={form.responsable} onChange={e=>set("responsable",e.target.value)} placeholder="Nombre del responsable"/></div>
+          </div>
+          <div className="field"><label className="label">Objetivo (opcional)</label><textarea value={form.objetivo} onChange={e=>set("objetivo",e.target.value)} placeholder="Describe el objetivo…" rows={2}/></div>
+
+          <div className="section-title">Cronograma y asistencia</div>
+          <div className="grid3">
+            <div className="field"><label className="label">Estado</label>
+              <select value={form.estado} onChange={e=>set("estado",e.target.value)}>
+                {ESTADOS.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Mes programado</label><input type="date" value={form.mes_programado} onChange={e=>set("mes_programado",e.target.value)}/></div>
+            <div className="field"><label className="label">Fecha de ejecución</label><input type="date" value={form.fecha_ejecucion} onChange={e=>set("fecha_ejecucion",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Trabajadores programados</label><input type="number" value={form.trabajadores_programados} onChange={e=>set("trabajadores_programados",e.target.value)}/></div>
+            <div className="field"><label className="label">Trabajadores que asistieron</label><input type="number" value={form.trabajadores_asistieron} onChange={e=>set("trabajadores_asistieron",e.target.value)}/></div>
+          </div>
+          <div className="field"><label className="label">Seguimiento / notas</label><textarea value={form.seguimiento} onChange={e=>set("seguimiento",e.target.value)} placeholder="Observaciones…" rows={2}/></div>
+
+          <div className="section-title">Información financiera</div>
+          <div className="grid2">
+            <div className="field"><label className="label">Costo ($)</label><input type="number" value={form.costo} onChange={e=>set("costo",e.target.value)}/></div>
+            <div className="field"><label className="label">Fuente de recursos</label>
+              <div className="chip-group" style={{marginTop:"4px"}}>
+                {FUENTES.map(f=><button key={f} type="button" className={`chip${(form.fuente_recursos||[]).includes(f)?" active":""}`} onClick={()=>toggleFuente(f)}>{f}</button>)}
+              </div>
+            </div>
+          </div>
+
+          {form.estado==="Ejecutada" && <>
+            <div className="section-title">Eficacia <span style={{color:"var(--warn)"}}>*</span></div>
+            {(!form.eficacia_fecha||!form.eficacia_metodo||!form.eficacia_responsable) && <div className="alert" style={{background:"#eff6ff",border:"1px solid #93c5fd",color:"#1e40af",fontSize:"13px",marginBottom:"14px"}}>Puedes completar la eficacia al cierre del mes. Mientras tanto la capacitación queda marcada como <strong>Eficacia pendiente</strong>.</div>}
+            <div className="grid3">
+              <div className="field"><label className="label">Fecha de verificación *</label><input type="date" value={form.eficacia_fecha} onChange={e=>set("eficacia_fecha",e.target.value)}/></div>
+              <div className="field"><label className="label">Método de evaluación *</label><input value={form.eficacia_metodo} onChange={e=>set("eficacia_metodo",e.target.value)} placeholder="Ej: Evaluación de conocimientos"/></div>
+              <div className="field"><label className="label">Responsable medición *</label><input value={form.eficacia_responsable} onChange={e=>set("eficacia_responsable",e.target.value)} placeholder="Nombre"/></div>
+            </div>
+            <div className="field" style={{marginTop:"8px"}}>
+              <label style={{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer",padding:"12px 16px",background:form.fue_eficaz?"#fdf8ec":"var(--surface2)",border:"1px solid",borderColor:form.fue_eficaz?"#c9a84c":"var(--border)",borderRadius:"var(--radius)",transition:"all 0.15s"}}>
+                <input type="checkbox" checked={form.fue_eficaz===true} onChange={e=>set("fue_eficaz",e.target.checked?true:null)} style={{width:"18px",height:"18px",accentColor:"#2d5016",cursor:"pointer"}}/>
+                <span style={{fontSize:"14px",fontWeight:"500",color:form.fue_eficaz?"#6b4e1a":"var(--text2)"}}>
+                  {form.fue_eficaz ? "✓ Capacitación eficaz" : "¿Fue eficaz esta capacitación?"}
+                </span>
+              </label>
+            </div>
+          </>}
+
+          <div className="section-title">Evidencias</div>
+          {existingEvid.length>0 && <div style={{marginBottom:"12px"}}>
+            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"6px",fontWeight:"600"}}>Archivos cargados</div>
+            {existingEvid.map(ev=>(
+              <div key={ev.id} className="file-item">
+                <span style={{display:"flex",alignItems:"center",gap:"6px"}}>{Ico.file} {ev.nombre_archivo} <span style={{fontSize:"11px",color:"var(--text3)"}}>({ev.tipo})</span></span>
+                <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
+                  <a href={ev.url} target="_blank" rel="noreferrer" style={{fontSize:"12px",color:"var(--accent2)"}}>Ver</a>
+                  <button type="button" onClick={()=>deleteEvid(ev.id)} style={{background:"none",color:"var(--danger)",padding:"0"}}>{Ico.trash}</button>
+                </div>
+              </div>
+            ))}
+          </div>}
+          {TIPOS_EVIDENCIA.map(({key,label})=>{
+            const pending = evidencias.find(e=>e.tipo===key);
+            return (
+              <div key={key} style={{marginBottom:"10px"}}>
+                <label className="label">{label}</label>
+                <label className="upload-zone">
+                  <input type="file" style={{display:"none"}} onChange={e=>{ const f=e.target.files[0]; if(f) setEvidencias(p=>[...p.filter(x=>x.tipo!==key),{tipo:key,file:f}]); }} accept=".pdf,.png,.jpg,.jpeg,.pptx,.xlsx,.docx"/>
+                  {pending
+                    ? <div style={{fontSize:"13px",color:"var(--accent)"}}>{Ico.file} {pending.file.name}</div>
+                    : <div style={{color:"var(--text3)",fontSize:"13px"}}>{Ico.upload}<br/>Haz clic para subir {label.toLowerCase()}</div>}
+                </label>
+              </div>
+            );
+          })}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── LISTADO ──
+function Listado({ caps, empresas, token, onRefresh, isAdmin=true }) {
+  const [search, setSearch] = useState("");
+  const [filtEst, setFiltEst] = useState("");
+  const [mesesAbiertos, setMesesAbiertos] = useState({});
+  const [empresasAbiertas, setEmpresasAbiertas] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [evidCounts, setEvidCounts] = useState({});
+
+  useEffect(()=>{
+    const ejecutadas = caps.filter(c=>
+      c.estado==="Ejecutada" && c.eficacia_fecha && c.eficacia_metodo && c.eficacia_responsable
+    );
+    if(ejecutadas.length === 0) { setEvidCounts({}); return; }
+    const ids = ejecutadas.map(c=>`"${c.id}"`).join(',');
     fetch(`${SUPABASE_URL}/rest/v1/evidencias?capacitacion_id=in.(${ids})&select=capacitacion_id`, {
       headers:{ apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
     }).then(r=>r.json()).then(data=>{
