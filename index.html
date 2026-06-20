@@ -6,7 +6,7 @@
 <title>Aura · Mariale Guerrero</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -1791,14 +1791,6 @@ function FormLibro({ libro, CATEGORIAS_DEWEY, token, onSave, onClose, apiB }) {
   const [err, setErr] = React.useState("");
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
-  const buscarEmpleado = (cedula) => {
-    set("cedula", cedula);
-    const emp = empleados.find(e=>e.cedula===cedula.trim());
-    if(emp) {
-      setForm(f=>({...f, cedula, nombre_lector:emp.nombre, cargo:emp.cargo||"", empresa:emp.empresa||"", contacto:emp.celular||emp.correo||""}));
-    }
-  };
-
   const save = async () => {
     if(!form.titulo.trim()){ setErr("El título es obligatorio."); return; }
     setLoading(true); setErr("");
@@ -2134,14 +2126,6 @@ function FormEmpleado({ emp, onSave, onClose, apiB }) {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState("");
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
-
-  const buscarEmpleado = (cedula) => {
-    set("cedula", cedula);
-    const emp = empleados.find(e=>e.cedula===cedula.trim());
-    if(emp) {
-      setForm(f=>({...f, cedula, nombre_lector:emp.nombre, cargo:emp.cargo||"", empresa:emp.empresa||"", contacto:emp.celular||emp.correo||""}));
-    }
-  };
 
   const save = async () => {
     if(!form.cedula.trim()||!form.nombre.trim()){ setErr("Cédula y nombre son obligatorios."); return; }
