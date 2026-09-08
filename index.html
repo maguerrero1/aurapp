@@ -1444,6 +1444,7 @@ function ModuloBiblioteca({ token, isAdmin, onBack, onLogout }) {
   const { useState, useEffect } = React;
   const [vista, setVista] = useState("dashboard");
   const [filtroVencidos, setFiltroVencidos] = useState(false);
+  const [filtroSancionados, setFiltroSancionados] = useState(false);
   const [libros, setLibros] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1495,6 +1496,7 @@ function ModuloBiblioteca({ token, isAdmin, onBack, onLogout }) {
   const totalDisponibles = libros.reduce((acc,l)=> acc + disponibles(l.id), 0);
   const totalPrestados = prestamos.filter(p=>p.estado==="Prestado").length;
   const vencidos = prestamos.filter(p=>p.estado==="Prestado" && p.fecha_devolucion_esperada && new Date(p.fecha_devolucion_esperada) < new Date()).length;
+  const sancionados = empleados.filter(e=>e.sancionado && e.fecha_sancion_fin && new Date(e.fecha_sancion_fin) > new Date()).length;
 
   const librosFiltrados = libros.filter(l=>{
     const s = search.toLowerCase();
@@ -1502,14 +1504,15 @@ function ModuloBiblioteca({ token, isAdmin, onBack, onLogout }) {
   });
 
   // Reset filtroVencidos when vista changes away from prestamos
-  React.useEffect(()=>{ if(vista!=="prestamos") setFiltroVencidos(false); },[vista]);
+  React.useEffect(()=>{ if(vista!=="prestamos") { setFiltroVencidos(false); setFiltroSancionados(false); } },[vista]);
 
   const prestamosFiltrados = prestamos.filter(p=>{
     const s = search.toLowerCase();
     const matchSearch = !s || p.nombre_lector?.toLowerCase().includes(s);
     const matchEst = !filtroEst || p.estado === filtroEst;
     const matchVencido = !filtroVencidos || (p.estado==="Prestado" && p.fecha_devolucion_esperada && new Date(p.fecha_devolucion_esperada) < new Date());
-    return matchSearch && matchEst && matchVencido;
+    const matchSancionado = !filtroSancionados || p.sancionado === true;
+    return matchSearch && matchEst && matchVencido && matchSancionado;
   });
 
   return (
@@ -1547,8 +1550,9 @@ function ModuloBiblioteca({ token, isAdmin, onBack, onLogout }) {
               {[
                 {num:libros.length, label:"Títulos en catálogo", color:"var(--text)"},
                 {num:totalDisponibles, label:"Ejemplares disponibles", color:"#c9a84c"},
-                {num:totalPrestados, label:"Actualmente prestados", color:"#3b5bdb", action:()=>{setFiltroVencidos(false);setVista("prestamos");}},
-                {num:vencidos, label:"Préstamos vencidos", color:vencidos>0?"#dc2626":"var(--text3)", action:()=>{setFiltroVencidos(true);setVista("prestamos");}},
+                {num:totalPrestados, label:"Actualmente prestados", color:"#3b5bdb", action:()=>{setFiltroVencidos(false);setFiltroSancionados(false);setVista("prestamos");}},
+                {num:vencidos, label:"Préstamos vencidos", color:vencidos>0?"#dc2626":"var(--text3)", action:()=>{setFiltroVencidos(true);setFiltroSancionados(false);setVista("prestamos");}},
+                {num:sancionados, label:"Usuarios sancionados", color:sancionados>0?"#d97706":"var(--text3)", action:()=>{setFiltroSancionados(true);setFiltroVencidos(false);setVista("prestamos");}},
               ].map((s,i)=>(
                 <div key={i} className="stat-card" onClick={s.action} style={{cursor:s.action?"pointer":"default",transition:"transform 0.12s"}}
                   onMouseEnter={e=>{if(s.action)e.currentTarget.style.transform="translateY(-2px)"}}
@@ -1695,11 +1699,11 @@ function ModuloBiblioteca({ token, isAdmin, onBack, onLogout }) {
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
               <div>
                 <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>
-                  {filtroVencidos ? "Préstamos vencidos" : "Historial de préstamos"}
+                  {filtroVencidos ? "Préstamos vencidos" : filtroSancionados ? "Usuarios sancionados" : "Historial de préstamos"}
                 </h2>
-                <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{prestamosFiltrados.length} registros{filtroVencidos?" vencidos":""}</p>
+                <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{prestamosFiltrados.length} registros{filtroVencidos?" vencidos":filtroSancionados?" con sanción":""}</p>
               </div>
-              {filtroVencidos && <button type="button" onClick={()=>setFiltroVencidos(false)} style={{fontSize:"12px",padding:"6px 14px",border:"0.5px solid var(--border)",borderRadius:"8px",background:"var(--surface)",color:"var(--text2)",cursor:"pointer"}}>Ver todos →</button>}
+              {(filtroVencidos||filtroSancionados) && <button type="button" onClick={()=>{setFiltroVencidos(false);setFiltroSancionados(false);}} style={{fontSize:"12px",padding:"6px 14px",border:"0.5px solid var(--border)",borderRadius:"8px",background:"var(--surface)",color:"var(--text2)",cursor:"pointer"}}>Ver todos →</button>}
             </div>
             <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"16px"}}>
               <div className="search-wrap" style={{flex:1,minWidth:"200px",position:"relative"}}>
@@ -2186,6 +2190,695 @@ function FormEmpleado({ emp, onSave, onClose, apiB }) {
   );
 }
 
+
+// ── MÓDULO SELECCIÓN — Base Maestra de Personal ──
+function ModuloSeleccion({ token, isAdmin, onBack, onLogout }) {
+  const { useState, useEffect } = React;
+  const [vista, setVista] = useState("dashboard");
+  const [personal, setPersonal] = useState([]);
+  const [procesos, setProcesos] = useState([]);
+  const [movilidad, setMovilidad] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroEmpleador, setFiltroEmpleador] = useState("");
+  const [editPersonal, setEditPersonal] = useState(null);
+  const [editProceso, setEditProceso] = useState(null);
+  const [editMovilidad, setEditMovilidad] = useState(null);
+
+  const EMPLEADORES = ["QUIMICA ORION S.A.S","LOGISTICA INTEGRAL ALTAIR S.A.S","SAITEMP","SERVIJOB S.A.","MANPOWER","ORION LOGISTICA S.A.S","MAXPURE S.A.S","FIXNOVA","MAREE INVERSIONES"];
+  const TIPOS_CARGO = ["OPERATIVO","ADMINISTRATIVO"];
+
+  const apiS = async (path, opts={}) => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: opts.prefer||"return=representation", ...(opts.headers||{}) },
+      ...opts
+    });
+    if(!res.ok){ const t=await res.text(); throw new Error(t); }
+    const t = await res.text(); return t ? JSON.parse(t) : null;
+  };
+
+  // Trae TODOS los registros paginando (Supabase limita a 1000 por defecto)
+  const apiSAll = async (path) => {
+    let all = [];
+    let from = 0;
+    const pageSize = 1000;
+    while(true) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        headers: {
+          apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json",
+          Range: `${from}-${from+pageSize-1}`
+        }
+      });
+      if(!res.ok){ const t=await res.text(); throw new Error(t); }
+      const data = await res.json();
+      all = all.concat(data||[]);
+      if(!data || data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  };
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const [pers, procs, movs] = await Promise.all([
+        apiSAll("personal_maestro?select=*&order=nombre_completo"),
+        apiS("procesos_seleccion?select=*&order=fecha_requerimiento.desc"),
+        apiS("movilidad_interna?select=*&order=fecha_inicio_entrenamiento.desc"),
+      ]);
+      setPersonal(pers||[]);
+      setProcesos(procs||[]);
+      setMovilidad(movs||[]);
+    } catch(e){ console.error(e); }
+    setLoading(false);
+  };
+
+  useEffect(()=>{ cargar(); },[]);
+
+  // ── INDICADORES AUTOMÁTICOS (calculados desde la base, igual que el Excel) ──
+  const activos = personal.filter(p=>p.estado==="Activo");
+  const inactivos = personal.filter(p=>p.estado==="Inactivo");
+
+  const hoy = new Date();
+  const anioActual = hoy.getFullYear();
+  const mesActual = hoy.getMonth();
+
+  // Personal activo por empleador
+  const porEmpleador = {};
+  activos.forEach(p=>{ const e=p.empleador||"Sin dato"; porEmpleador[e]=(porEmpleador[e]||0)+1; });
+
+  // Distribución género (solo activos)
+  const porGenero = { Femenino:0, Masculino:0, "Sin dato":0 };
+  activos.forEach(p=>{
+    const g = p.genero;
+    if(g==="Femenino"||g==="Masculino") porGenero[g]++;
+    else porGenero["Sin dato"]++;
+  });
+
+  // Rotación de personal del mes actual (A=contratados, D=desvinculados, F1, F2)
+  const contratadosMes = personal.filter(p=>{
+    if(!p.fecha_ingreso) return false;
+    const d = new Date(p.fecha_ingreso);
+    return d.getMonth()===mesActual && d.getFullYear()===anioActual;
+  }).length;
+  const desvinculadosMes = personal.filter(p=>{
+    if(!p.fecha_retiro) return false;
+    const d = new Date(p.fecha_retiro);
+    return d.getMonth()===mesActual && d.getFullYear()===anioActual;
+  }).length;
+  // F1 = activos al comienzo del mes (activos hoy + desvinculados este mes - contratados este mes, aproximado)
+  const f2 = activos.length;
+  const f1 = f2 + desvinculadosMes - contratadosMes;
+  const indiceRotacion = f1>0 ? (((contratadosMes+desvinculadosMes)/2)/f1) : 0;
+
+  // Selección: tiempo promedio req->contratación (año actual)
+  const procesosAnio = procesos.filter(p=>{
+    if(!p.fecha_requerimiento) return false;
+    return new Date(p.fecha_requerimiento).getFullYear()===anioActual;
+  });
+  const procesosOperativo = procesosAnio.filter(p=>p.tipo_cargo==="OPERATIVO" && p.dias_req_sel!=null);
+  const procesosAdmin = procesosAnio.filter(p=>p.tipo_cargo==="ADMINISTRATIVO" && p.dias_req_sel!=null);
+  const promDiasOperativo = procesosOperativo.length>0 ? procesosOperativo.reduce((a,p)=>a+(p.dias_req_sel||0),0)/procesosOperativo.length : null;
+  const promDiasAdmin = procesosAdmin.length>0 ? procesosAdmin.reduce((a,p)=>a+(p.dias_req_sel||0),0)/procesosAdmin.length : null;
+  const metaOperativo = 14, metaAdmin = 24;
+
+  // Movilidad interna: % vacantes cubiertas internamente (todas aplican = todas son internas por diseño actual)
+  const movilidadAplica = movilidad.filter(m=>m.aplica_indicador);
+  const movilidadCerradas = movilidadAplica.filter(m=>m.estado==="CERRADO" || m.estado==="Cerrado");
+  const tasaMovilidad = movilidadAplica.length>0 ? Math.round((movilidadAplica.length/movilidadAplica.length)*100) : 0; // todas son internas
+  const metaMovilidad = 20;
+
+  // Filtros sobre personal
+  const personalFiltrado = personal.filter(p=>{
+    const s = search.toLowerCase();
+    const matchSearch = !s || p.nombre_completo?.toLowerCase().includes(s) || p.cedula?.includes(s) || p.cargo?.toLowerCase().includes(s);
+    const matchEstado = !filtroEstado || p.estado===filtroEstado;
+    const matchEmpleador = !filtroEmpleador || p.empleador===filtroEmpleador;
+    return matchSearch && matchEstado && matchEmpleador;
+  });
+
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
+      {/* Header */}
+      <div style={{background:"var(--surface)",borderBottom:"0.5px solid var(--border)",padding:"14px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"10px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+          <button type="button" onClick={onBack} style={{background:"none",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"6px 12px",fontSize:"12px",color:"var(--text2)",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}>
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            Módulos
+          </button>
+          <div>
+            <div style={{fontFamily:"Fraunces,serif",fontSize:"18px",fontWeight:"700",color:"var(--text)"}}>Selección</div>
+            <div style={{fontSize:"11px",color:"var(--text3)"}}>Base maestra de personal</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
+          {[{id:"dashboard",label:"Inicio"},{id:"maestra",label:"Base maestra"},{id:"seleccion",label:"Procesos de selección"},{id:"movilidad",label:"Movilidad interna"}].map(v=>(
+            <button key={v.id} type="button" onClick={()=>setVista(v.id)} style={{padding:"6px 14px",borderRadius:"7px",fontSize:"13px",cursor:"pointer",border:"0.5px solid",fontWeight:vista===v.id?"600":"400",
+              borderColor:vista===v.id?"#16a34a":"var(--border)",background:vista===v.id?"#f0fdf4":"var(--surface)",color:vista===v.id?"#15803d":"var(--text2)"}}>
+              {v.label}
+            </button>
+          ))}
+          <button type="button" onClick={onLogout} style={{background:"none",border:"0.5px solid var(--border)",borderRadius:"8px",padding:"6px 12px",fontSize:"12px",color:"var(--text3)",cursor:"pointer",marginLeft:"8px"}}>Salir</button>
+        </div>
+      </div>
+
+      <div style={{flex:1,padding:"28px 32px",maxWidth:"1200px",width:"100%",margin:"0 auto"}}>
+        {loading && <div style={{textAlign:"center",padding:"40px",color:"var(--text3)"}}>Cargando...</div>}
+
+        {/* ═══ DASHBOARD — Indicadores automáticos ═══ */}
+        {!loading && vista==="dashboard" && (
+          <div>
+            <div style={{marginBottom:"24px"}}>
+              <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>Indicadores de Selección</h2>
+              <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>Calculados automáticamente desde la base maestra de personal</p>
+            </div>
+
+            {/* Stat cards generales */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"14px",marginBottom:"24px"}}>
+              {[
+                {num:personal.length, label:"Total en base maestra", color:"var(--text)"},
+                {num:activos.length, label:"Personal activo", color:"#16a34a"},
+                {num:inactivos.length, label:"Personal inactivo", color:"var(--text3)"},
+                {num:procesosAnio.length, label:`Selecciones ${anioActual}`, color:"#3b5bdb"},
+              ].map((s,i)=>(
+                <div key={i} className="stat-card">
+                  <div className="stat-num" style={{color:s.color}}>{s.num}</div>
+                  <div className="stat-label">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Indicador: Tiempo de selección */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"20px"}}>
+              <div className="card" style={{padding:"20px"}}>
+                <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"10px"}}>Tiempo de selección — Operativo</div>
+                <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
+                  <span style={{fontFamily:"Fraunces,serif",fontSize:"36px",fontWeight:"700",color:promDiasOperativo!==null&&promDiasOperativo<=metaOperativo?"#16a34a":"#dc2626"}}>
+                    {promDiasOperativo!==null ? promDiasOperativo.toFixed(1) : "—"}
+                  </span>
+                  <span style={{fontSize:"12px",color:"var(--text3)"}}>días · meta: ≤{metaOperativo}</span>
+                </div>
+                <div style={{fontSize:"12px",color:"var(--text2)"}}>{procesosOperativo.length} procesos operativos en {anioActual}</div>
+              </div>
+              <div className="card" style={{padding:"20px"}}>
+                <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"10px"}}>Tiempo de selección — Administrativo</div>
+                <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
+                  <span style={{fontFamily:"Fraunces,serif",fontSize:"36px",fontWeight:"700",color:promDiasAdmin!==null&&promDiasAdmin<=metaAdmin?"#16a34a":"#dc2626"}}>
+                    {promDiasAdmin!==null ? promDiasAdmin.toFixed(1) : "—"}
+                  </span>
+                  <span style={{fontSize:"12px",color:"var(--text3)"}}>días · meta: ≤{metaAdmin}</span>
+                </div>
+                <div style={{fontSize:"12px",color:"var(--text2)"}}>{procesosAdmin.length} procesos administrativos en {anioActual}</div>
+              </div>
+            </div>
+
+            {/* Indicador: Rotación + Movilidad */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"20px"}}>
+              <div className="card" style={{padding:"20px"}}>
+                <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"10px"}}>Índice de rotación — mes actual</div>
+                <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
+                  <span style={{fontFamily:"Fraunces,serif",fontSize:"36px",fontWeight:"700",color:"var(--text)"}}>{(indiceRotacion*100).toFixed(1)}%</span>
+                </div>
+                <div style={{fontSize:"12px",color:"var(--text2)"}}>{contratadosMes} contratados · {desvinculadosMes} desvinculados este mes</div>
+              </div>
+              <div className="card" style={{padding:"20px"}}>
+                <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"10px"}}>Tasa de movilidad interna</div>
+                <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"8px"}}>
+                  <span style={{fontFamily:"Fraunces,serif",fontSize:"36px",fontWeight:"700",color:tasaMovilidad>=metaMovilidad?"#16a34a":"#dc2626"}}>{tasaMovilidad}%</span>
+                  <span style={{fontSize:"12px",color:"var(--text3)"}}>meta: ≥{metaMovilidad}%</span>
+                </div>
+                <div style={{fontSize:"12px",color:"var(--text2)"}}>{movilidadAplica.length} movimientos registrados · {movilidadCerradas.length} cerrados</div>
+              </div>
+            </div>
+
+            {/* Distribución por empleador y género */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px"}}>
+              <div className="card" style={{padding:"20px"}}>
+                <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"14px"}}>Personal activo por empleador</div>
+                {Object.entries(porEmpleador).sort((a,b)=>b[1]-a[1]).map(([emp,n])=>(
+                  <div key={emp} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:"0.5px solid var(--border)"}}>
+                    <span style={{fontSize:"13px",color:"var(--text2)"}}>{emp}</span>
+                    <span style={{fontSize:"14px",fontWeight:"600",color:"var(--text)"}}>{n}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="card" style={{padding:"20px"}}>
+                <div style={{fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"14px"}}>Distribución de género (activos)</div>
+                {Object.entries(porGenero).filter(([,n])=>n>0).map(([g,n])=>{
+                  const pct = activos.length>0 ? Math.round((n/activos.length)*100) : 0;
+                  return (
+                    <div key={g} style={{marginBottom:"10px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:"13px",marginBottom:"4px"}}>
+                        <span style={{color:"var(--text2)"}}>{g}</span>
+                        <span style={{fontWeight:"600"}}>{n} ({pct}%)</span>
+                      </div>
+                      <div style={{height:"6px",background:"var(--surface2)",borderRadius:"3px",overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${pct}%`,background:g==="Femenino"?"#ec4899":g==="Masculino"?"#3b5bdb":"#94a3b8",borderRadius:"3px"}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ BASE MAESTRA DE PERSONAL ═══ */}
+        {!loading && vista==="maestra" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
+              <div>
+                <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>Base maestra de personal</h2>
+                <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{personalFiltrado.length} de {personal.length} registros · fuente única para todos los indicadores</p>
+              </div>
+              <button type="button" onClick={()=>setEditPersonal({})} className="btn-primary" style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Nueva persona
+              </button>
+            </div>
+            <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"16px"}}>
+              <div className="search-wrap" style={{flex:1,minWidth:"200px",position:"relative"}}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{position:"absolute",left:"10px",top:"50%",transform:"translateY(-50%)"}}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+                <input placeholder="Buscar por nombre, cédula o cargo…" value={search} onChange={e=>setSearch(e.target.value)} style={{paddingLeft:"36px"}}/>
+              </div>
+              <select value={filtroEstado} onChange={e=>setFiltroEstado(e.target.value)} style={{width:"auto",minWidth:"140px"}}>
+                <option value="">Todos los estados</option>
+                <option value="Activo">Activos</option>
+                <option value="Inactivo">Inactivos</option>
+              </select>
+              <select value={filtroEmpleador} onChange={e=>setFiltroEmpleador(e.target.value)} style={{width:"auto",minWidth:"180px"}}>
+                <option value="">Todos los empleadores</option>
+                {EMPLEADORES.map(e=><option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+            <div className="card">
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>
+                    {["Cédula","Nombre","Cargo","Empleador","Tipo cargo","Estado","Ingreso","Antigüedad",""].map(h=>(
+                      <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid var(--border)",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {personalFiltrado.slice(0,200).map(p=>{
+                      const antig = p.fecha_ingreso ? ((p.fecha_retiro?new Date(p.fecha_retiro):new Date()) - new Date(p.fecha_ingreso))/(365.25*24*3600*1000) : null;
+                      return (
+                        <tr key={p.id}>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px"}}>{p.cedula}</td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",fontWeight:"500"}}>{p.nombre_completo}</td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.cargo||"—"}</td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.empleador||"—"}</td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.tipo_cargo||"—"}</td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                            <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 10px",borderRadius:"20px",background:p.estado==="Activo"?"#f0fdf4":"#f4f1ec",color:p.estado==="Activo"?"#15803d":"var(--text3)"}}>{p.estado}</span>
+                          </td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.fecha_ingreso||"—"}</td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{antig!==null?antig.toFixed(1)+" años":"—"}</td>
+                          <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                            <button type="button" onClick={()=>setEditPersonal(p)} style={{background:"none",color:"var(--text2)",padding:"4px 8px",borderRadius:"6px",border:"0.5px solid var(--border)",fontSize:"12px",cursor:"pointer"}}>Editar</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {personalFiltrado.length===0 && <tr><td colSpan="9" style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"13px"}}>No se encontraron registros.</td></tr>}
+                  </tbody>
+                </table>
+                {personalFiltrado.length>200 && <div style={{padding:"12px",textAlign:"center",fontSize:"12px",color:"var(--text3)"}}>Mostrando 200 de {personalFiltrado.length}. Usa los filtros para refinar la búsqueda.</div>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ PROCESOS DE SELECCIÓN ═══ */}
+        {!loading && vista==="seleccion" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
+              <div>
+                <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>Procesos de selección</h2>
+                <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{procesos.length} procesos registrados · al contratar, conecta automáticamente con la base maestra</p>
+              </div>
+              <button type="button" onClick={()=>setEditProceso({})} className="btn-primary" style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Nuevo proceso
+              </button>
+            </div>
+            <div className="card">
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>
+                    {["Candidato","Cargo","Tipo","Empresa","Req.","Selec.","Contrat.","Días tot.","Calificación",""].map(h=>(
+                      <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid var(--border)",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {procesos.map(p=>(
+                      <tr key={p.id}>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",fontWeight:"500"}}>{p.nombre_candidato}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.nombre_cargo||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.tipo_cargo||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{p.empresa||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.fecha_requerimiento||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.fecha_seleccion||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{p.fecha_contratacion||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",fontWeight:"600",color:"var(--text)"}}>{p.dias_req_cont||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                          <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 8px",borderRadius:"20px",
+                            background:p.calificacion_proceso==="Supera expectativas"?"#f0fdf4":p.calificacion_proceso==="Ideal"?"#eff6ff":"#fef2f2",
+                            color:p.calificacion_proceso==="Supera expectativas"?"#15803d":p.calificacion_proceso==="Ideal"?"#1e40af":"#991b1b"}}>
+                            {p.calificacion_proceso||"—"}
+                          </span>
+                        </td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                          <button type="button" onClick={()=>setEditProceso(p)} style={{background:"none",color:"var(--text2)",padding:"4px 8px",borderRadius:"6px",border:"0.5px solid var(--border)",fontSize:"12px",cursor:"pointer"}}>Editar</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {procesos.length===0 && <tr><td colSpan="10" style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"13px"}}>No hay procesos registrados.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ MOVILIDAD INTERNA ═══ */}
+        {!loading && vista==="movilidad" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
+              <div>
+                <h2 style={{fontSize:"20px",fontWeight:"700",fontFamily:"Fraunces,serif"}}>Movilidad interna</h2>
+                <p style={{fontSize:"13px",color:"var(--text2)",marginTop:"3px"}}>{movilidad.length} movimientos registrados</p>
+              </div>
+              <button type="button" onClick={()=>setEditMovilidad({})} className="btn-primary" style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Nuevo movimiento
+              </button>
+            </div>
+            <div className="card">
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>
+                    {["Nombre","Cargo actual","Cargo destino","Tipo mov.","Inicio entr.","Fin entr.","Bonificación","Estado",""].map(h=>(
+                      <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid var(--border)",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {movilidad.map(m=>(
+                      <tr key={m.id}>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"13px",fontWeight:"500"}}>{m.nombre_completo}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{m.cargo_actual||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{m.cargo_entrenamiento||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)"}}>{m.tipo_movimiento||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{m.fecha_inicio_entrenamiento||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{m.fecha_fin_entrenamiento||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{m.fecha_bonificacion||"—"}</td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                          <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 8px",borderRadius:"20px",
+                            background:m.estado==="CERRADO"?"#f0fdf4":m.estado==="ABIERTO"?"#fffbeb":"#eff6ff",
+                            color:m.estado==="CERRADO"?"#15803d":m.estado==="ABIERTO"?"#92400e":"#1e40af"}}>
+                            {m.estado||"—"}
+                          </span>
+                        </td>
+                        <td style={{padding:"9px 12px",borderBottom:"0.5px solid var(--border)"}}>
+                          <button type="button" onClick={()=>setEditMovilidad(m)} style={{background:"none",color:"var(--text2)",padding:"4px 8px",borderRadius:"6px",border:"0.5px solid var(--border)",fontSize:"12px",cursor:"pointer"}}>Editar</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {movilidad.length===0 && <tr><td colSpan="9" style={{textAlign:"center",padding:"30px",color:"var(--text3)",fontSize:"13px"}}>No hay movimientos registrados.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {editPersonal && <FormPersonalMaestro persona={editPersonal} EMPLEADORES={EMPLEADORES} TIPOS_CARGO={TIPOS_CARGO} apiS={apiS} onSave={()=>{setEditPersonal(null);cargar();}} onClose={()=>setEditPersonal(null)}/>}
+      {editProceso && <FormProcesoSeleccion proceso={editProceso} personal={personal} TIPOS_CARGO={TIPOS_CARGO} apiS={apiS} onSave={()=>{setEditProceso(null);cargar();}} onClose={()=>setEditProceso(null)}/>}
+      {editMovilidad && <FormMovilidad movimiento={editMovilidad} apiS={apiS} onSave={()=>{setEditMovilidad(null);cargar();}} onClose={()=>setEditMovilidad(null)}/>}
+    </div>
+  );
+}
+
+// ── FORM PERSONAL MAESTRO ──
+function FormPersonalMaestro({ persona, EMPLEADORES, TIPOS_CARGO, apiS, onSave, onClose }) {
+  const isNew = !persona.id;
+  const [form, setForm] = React.useState({
+    cedula: persona.cedula||"", nombre_completo: persona.nombre_completo||"",
+    estado: persona.estado||"Activo", fecha_ingreso: persona.fecha_ingreso||"",
+    fecha_retiro: persona.fecha_retiro||"", motivo_retiro: persona.motivo_retiro||"",
+    empleador: persona.empleador||"", cargo: persona.cargo||"", tipo_cargo: persona.tipo_cargo||"",
+    tipo_contrato: persona.tipo_contrato||"", salario: persona.salario||"",
+    genero: persona.genero||"", celular: persona.celular||"", correo: persona.correo||"",
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const save = async () => {
+    if(!form.cedula.trim()||!form.nombre_completo.trim()){ setErr("Cédula y nombre son obligatorios."); return; }
+    setLoading(true); setErr("");
+    try {
+      const payload = {...form, salario: form.salario?parseFloat(form.salario):null, updated_at:new Date().toISOString()};
+      if(isNew) await apiS("personal_maestro",{method:"POST",body:JSON.stringify(payload)});
+      else await apiS(`personal_maestro?id=eq.${persona.id}`,{method:"PATCH",body:JSON.stringify(payload)});
+      onSave();
+    } catch(e){ setErr(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nueva persona":"Editar persona"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          <div className="grid2">
+            <div className="field"><label className="label">Cédula *</label><input value={form.cedula} onChange={e=>set("cedula",e.target.value)}/></div>
+            <div className="field"><label className="label">Estado</label>
+              <select value={form.estado} onChange={e=>set("estado",e.target.value)}><option>Activo</option><option>Inactivo</option></select>
+            </div>
+          </div>
+          <div className="field"><label className="label">Nombre completo *</label><input value={form.nombre_completo} onChange={e=>set("nombre_completo",e.target.value)}/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Fecha de ingreso</label><input type="date" value={form.fecha_ingreso} onChange={e=>set("fecha_ingreso",e.target.value)}/></div>
+            <div className="field"><label className="label">Fecha de retiro</label><input type="date" value={form.fecha_retiro} onChange={e=>set("fecha_retiro",e.target.value)}/></div>
+          </div>
+          {form.estado==="Inactivo" && <div className="field"><label className="label">Motivo del retiro</label><input value={form.motivo_retiro} onChange={e=>set("motivo_retiro",e.target.value)}/></div>}
+          <div className="grid2">
+            <div className="field"><label className="label">Empleador</label>
+              <select value={form.empleador} onChange={e=>set("empleador",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {EMPLEADORES.map(e=><option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Tipo de cargo</label>
+              <select value={form.tipo_cargo} onChange={e=>set("tipo_cargo",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {TIPOS_CARGO.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="field"><label className="label">Cargo</label><input value={form.cargo} onChange={e=>set("cargo",e.target.value)}/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Tipo de contrato</label><input value={form.tipo_contrato} onChange={e=>set("tipo_contrato",e.target.value)} placeholder="INDEFINIDO, FIJO…"/></div>
+            <div className="field"><label className="label">Salario</label><input type="number" value={form.salario} onChange={e=>set("salario",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Género</label>
+              <select value={form.genero} onChange={e=>set("genero",e.target.value)}>
+                <option value="">— Seleccionar —</option><option>Femenino</option><option>Masculino</option>
+              </select>
+            </div>
+            <div className="field"><label className="label">Celular</label><input value={form.celular} onChange={e=>set("celular",e.target.value)}/></div>
+          </div>
+          <div className="field"><label className="label">Correo</label><input type="email" value={form.correo} onChange={e=>set("correo",e.target.value)}/></div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FORM PROCESO SELECCIÓN ──
+function FormProcesoSeleccion({ proceso, personal, TIPOS_CARGO, apiS, onSave, onClose }) {
+  const isNew = !proceso.id;
+  const [form, setForm] = React.useState({
+    nombre_candidato: proceso.nombre_candidato||"", cedula: proceso.cedula||"",
+    nombre_cargo: proceso.nombre_cargo||"", tipo_cargo: proceso.tipo_cargo||"",
+    empresa: proceso.empresa||"", tipo_contrato: proceso.tipo_contrato||"",
+    fecha_requerimiento: proceso.fecha_requerimiento||"", fecha_seleccion: proceso.fecha_seleccion||"",
+    fecha_contratacion: proceso.fecha_contratacion||"", calificacion_proceso: proceso.calificacion_proceso||"",
+    fuente: proceso.fuente||"",
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  // Auto-conectar con personal_maestro al ingresar cédula
+  const buscarPersona = (cedula) => {
+    set("cedula", cedula);
+    const p = personal.find(x=>x.cedula===cedula.trim());
+    if(p) setForm(f=>({...f, cedula, nombre_candidato:p.nombre_completo, nombre_cargo:p.cargo||f.nombre_cargo, tipo_cargo:p.tipo_cargo||f.tipo_cargo, empresa:p.empleador||f.empresa}));
+  };
+
+  const diffDias = (a,b) => { if(!a||!b) return null; return Math.round((new Date(b)-new Date(a))/(24*3600*1000)); };
+
+  const save = async () => {
+    if(!form.nombre_candidato.trim()){ setErr("El nombre del candidato es obligatorio."); return; }
+    setLoading(true); setErr("");
+    try {
+      const personalMatch = personal.find(p=>p.cedula===form.cedula);
+      const payload = {
+        ...form,
+        personal_id: personalMatch?.id || null,
+        dias_req_sel: diffDias(form.fecha_requerimiento, form.fecha_seleccion),
+        dias_sel_cont: diffDias(form.fecha_seleccion, form.fecha_contratacion),
+        dias_req_cont: diffDias(form.fecha_requerimiento, form.fecha_contratacion),
+        estado: form.fecha_contratacion ? "Contratado" : "En proceso",
+        updated_at: new Date().toISOString()
+      };
+      if(isNew) await apiS("procesos_seleccion",{method:"POST",body:JSON.stringify(payload)});
+      else await apiS(`procesos_seleccion?id=eq.${proceso.id}`,{method:"PATCH",body:JSON.stringify(payload)});
+      onSave();
+    } catch(e){ setErr(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nuevo proceso de selección":"Editar proceso"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          <div className="field">
+            <label className="label">Cédula del candidato</label>
+            <input value={form.cedula} onChange={e=>buscarPersona(e.target.value)} placeholder="Si ya existe en la base maestra, autocompleta"/>
+            {personal.find(p=>p.cedula===form.cedula) && <div style={{fontSize:"11px",color:"#16a34a",marginTop:"4px"}}>✓ Encontrado en la base maestra</div>}
+          </div>
+          <div className="field"><label className="label">Nombre del candidato *</label><input value={form.nombre_candidato} onChange={e=>set("nombre_candidato",e.target.value)}/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Nombre del cargo</label><input value={form.nombre_cargo} onChange={e=>set("nombre_cargo",e.target.value)}/></div>
+            <div className="field"><label className="label">Tipo de cargo</label>
+              <select value={form.tipo_cargo} onChange={e=>set("tipo_cargo",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {TIPOS_CARGO.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Empresa</label><input value={form.empresa} onChange={e=>set("empresa",e.target.value)}/></div>
+            <div className="field"><label className="label">Tipo de contrato</label><input value={form.tipo_contrato} onChange={e=>set("tipo_contrato",e.target.value)}/></div>
+          </div>
+          <div className="grid3">
+            <div className="field"><label className="label">Fecha requerimiento</label><input type="date" value={form.fecha_requerimiento} onChange={e=>set("fecha_requerimiento",e.target.value)}/></div>
+            <div className="field"><label className="label">Fecha selección</label><input type="date" value={form.fecha_seleccion} onChange={e=>set("fecha_seleccion",e.target.value)}/></div>
+            <div className="field"><label className="label">Fecha contratación</label><input type="date" value={form.fecha_contratacion} onChange={e=>set("fecha_contratacion",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Calificación del proceso</label>
+              <select value={form.calificacion_proceso} onChange={e=>set("calificacion_proceso",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                <option>Supera expectativas</option><option>Ideal</option><option>Insatisfactorio</option>
+              </select>
+            </div>
+            <div className="field"><label className="label">Fuente de reclutamiento</label><input value={form.fuente} onChange={e=>set("fuente",e.target.value)} placeholder="Referido, pieza internet…"/></div>
+          </div>
+          <div style={{fontSize:"11px",color:"var(--text3)",fontStyle:"italic"}}>Los días de gestión se calculan automáticamente al guardar.</div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FORM MOVILIDAD ──
+function FormMovilidad({ movimiento, apiS, onSave, onClose }) {
+  const isNew = !movimiento.id;
+  const [form, setForm] = React.useState({
+    cedula: movimiento.cedula||"", nombre_completo: movimiento.nombre_completo||"",
+    cargo_actual: movimiento.cargo_actual||"", cargo_entrenamiento: movimiento.cargo_entrenamiento||"",
+    empleador: movimiento.empleador||"", fecha_inicio_entrenamiento: movimiento.fecha_inicio_entrenamiento||"",
+    fecha_fin_entrenamiento: movimiento.fecha_fin_entrenamiento||"", fecha_bonificacion: movimiento.fecha_bonificacion||"",
+    tipo_vacante: movimiento.tipo_vacante||"", tipo_movimiento: movimiento.tipo_movimiento||"",
+    fuente_reclutamiento: movimiento.fuente_reclutamiento||"", estado: movimiento.estado||"EN ENTRENAMIENTO",
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const save = async () => {
+    if(!form.nombre_completo.trim()){ setErr("El nombre es obligatorio."); return; }
+    setLoading(true); setErr("");
+    try {
+      const payload = {...form, tipo_cobertura:"INTERNA", aplica_indicador:true, updated_at:new Date().toISOString()};
+      if(isNew) await apiS("movilidad_interna",{method:"POST",body:JSON.stringify(payload)});
+      else await apiS(`movilidad_interna?id=eq.${movimiento.id}`,{method:"PATCH",body:JSON.stringify(payload)});
+      onSave();
+    } catch(e){ setErr(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontSize:"18px",fontWeight:"700"}}>{isNew?"Nuevo movimiento":"Editar movimiento"}</h3>
+          <button onClick={onClose} style={{background:"none",color:"var(--text2)",padding:"4px"}}>{Ico.close}</button>
+        </div>
+        <div className="modal-body">
+          {err && <div className="alert alert-err">{err}</div>}
+          <div className="grid2">
+            <div className="field"><label className="label">Cédula</label><input value={form.cedula} onChange={e=>set("cedula",e.target.value)}/></div>
+            <div className="field"><label className="label">Nombre completo *</label><input value={form.nombre_completo} onChange={e=>set("nombre_completo",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Cargo actual</label><input value={form.cargo_actual} onChange={e=>set("cargo_actual",e.target.value)}/></div>
+            <div className="field"><label className="label">Cargo en entrenamiento</label><input value={form.cargo_entrenamiento} onChange={e=>set("cargo_entrenamiento",e.target.value)}/></div>
+          </div>
+          <div className="field"><label className="label">Empleador</label><input value={form.empleador} onChange={e=>set("empleador",e.target.value)}/></div>
+          <div className="grid3">
+            <div className="field"><label className="label">Inicio entrenamiento</label><input type="date" value={form.fecha_inicio_entrenamiento} onChange={e=>set("fecha_inicio_entrenamiento",e.target.value)}/></div>
+            <div className="field"><label className="label">Fin entrenamiento</label><input type="date" value={form.fecha_fin_entrenamiento} onChange={e=>set("fecha_fin_entrenamiento",e.target.value)}/></div>
+            <div className="field"><label className="label">Bonificación</label><input type="date" value={form.fecha_bonificacion} onChange={e=>set("fecha_bonificacion",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Tipo de movimiento</label>
+              <select value={form.tipo_movimiento} onChange={e=>set("tipo_movimiento",e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                <option>ASCENSO</option><option>TRASLADO</option><option>CAMBIO DE ROL/CARGO</option><option>PROMOCIÓN</option>
+              </select>
+            </div>
+            <div className="field"><label className="label">Estado</label>
+              <select value={form.estado} onChange={e=>set("estado",e.target.value)}>
+                <option>ABIERTO</option><option>EN ENTRENAMIENTO</option><option>CERRADO</option>
+              </select>
+            </div>
+          </div>
+          <div className="field"><label className="label">Fuente reclutamiento</label><input value={form.fuente_reclutamiento} onChange={e=>set("fuente_reclutamiento",e.target.value)} placeholder="Convocatoria interna, plan carrera…"/></div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── MODULOS HOME ──
 function ModulosHome({ isAdmin, modulosPermitidos=[], onSelectModulo, onLogout, userName }) {
   const hora = new Date().getHours();
@@ -2206,10 +2899,10 @@ function ModulosHome({ isAdmin, modulosPermitidos=[], onSelectModulo, onLogout, 
       icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#3b5bdb" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
     },
     {
-      id: "seleccion", nombre: "Selección", desc: "Vacantes y candidatos",
-      activo: false, acceso: false, accentColor: "#ece6dd", iconBg: "#f4f1ec",
-      badgeBg: "#f4f1ec", badgeColor: "#b8b0a6", badgeBorder: "#ece6dd",
-      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#b8b0a6" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      id: "seleccion", nombre: "Selección", desc: "Base maestra, vacantes y movilidad",
+      activo: true, acceso: isAdmin || modulosPermitidos.includes("seleccion"),
+      accentColor: "#16a34a", iconBg: "#f0fdf4", badgeBg: "#f0fdf4", badgeColor: "#15803d", badgeBorder: "#86efac",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
     },
     {
       id: "evaluacion", nombre: "Evaluación", desc: "Desempeño y seguimiento",
@@ -2302,7 +2995,7 @@ function App() {
   const [userId, setUserId] = useState(()=>localStorage.getItem("gh_uid")||"");
   const [modulosPermitidos, setModulosPermitidos] = useState(()=>{
     const m = localStorage.getItem("gh_modulos");
-    return m ? JSON.parse(m) : ["formacion","biblioteca"];
+    return m ? JSON.parse(m) : ["formacion","biblioteca","seleccion"];
   });
   const [moduloActivo, setModuloActivo] = useState("");
   const [page, setPage] = useState("dashboard");
@@ -2321,16 +3014,16 @@ function App() {
     setUserId(user.id);
     const perfil = await fetchPerfil(user.id, tok);
     localStorage.setItem("gh_rol", perfil.rol);
-    localStorage.setItem("gh_modulos", JSON.stringify(perfil.modulos || ["formacion","biblioteca"]));
+    localStorage.setItem("gh_modulos", JSON.stringify(perfil.modulos || ["formacion","biblioteca","seleccion"]));
     setRol(perfil.rol);
-    setModulosPermitidos(perfil.modulos || ["formacion","biblioteca"]);
+    setModulosPermitidos(perfil.modulos || ["formacion","biblioteca","seleccion"]);
   };
   const logout = () => {
     localStorage.removeItem("gh_token");
     localStorage.removeItem("gh_rol");
     localStorage.removeItem("gh_uid");
     setToken(""); setRol(""); setUserId(""); setCaps([]); setEmpresas([]);
-    setModuloActivo(""); setModulosPermitidos(["formacion","biblioteca"]);
+    setModuloActivo(""); setModulosPermitidos(["formacion","biblioteca","seleccion"]);
     localStorage.removeItem("gh_modulos");
   };
 
@@ -2354,6 +3047,7 @@ function App() {
   if(!token) return <Login onLogin={login}/>;
   if(!moduloActivo) return <ModulosHome isAdmin={isAdmin} modulosPermitidos={modulosPermitidos} onSelectModulo={setModuloActivo} onLogout={logout} userName={isAdmin?"Mariale":""}/>;
   if(moduloActivo === "biblioteca") return <ModuloBiblioteca token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
+  if(moduloActivo === "seleccion") return <ModuloSeleccion token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
 
   const filteredCaps = filtroEmpresa ? caps.filter(c=>c.empresa_id===filtroEmpresa) : caps;
 
