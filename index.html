@@ -686,6 +686,7 @@ function FichaIndicador({ tipo, caps, empresas, token, onClose }) {
 
 
 function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
+  const [filtroMesDash, setFiltroMesDash] = React.useState(null);
   const total = caps.length;
   const ejecutadas = caps.filter(c=>c.estado==="Ejecutada").length;
   const enProceso = caps.filter(c=>c.estado==="En proceso").length;
@@ -806,7 +807,7 @@ function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
             const borderColor = sinDatos ? "var(--border)" : cumple ? "#c9a84c40" : pct >= 50 ? "#d9770640" : "#dc262640";
             const isCurrent = i === new Date().getMonth();
             return (
-              <div key={i} style={{background:bg,borderRadius:"10px",padding:"14px 14px 12px",border:`1px solid ${borderColor}`,position:"relative"}}>
+              <div key={i} onClick={()=>!sinDatos && setFiltroMesDash(i)} style={{background:bg,borderRadius:"10px",padding:"14px 14px 12px",border:`1px solid ${borderColor}`,position:"relative",cursor:!sinDatos?"pointer":"default",transition:"transform 0.12s"}} onMouseEnter={e=>{if(!sinDatos)e.currentTarget.style.transform="translateY(-2px)"}} onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)"}}>
                 {isCurrent && <div style={{position:"absolute",top:"8px",right:"8px",width:"6px",height:"6px",borderRadius:"50%",background:"#c9a84c"}}/>}
                 <div style={{fontSize:"10px",fontWeight:"700",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"8px"}}>{MESES[i].slice(0,3)}</div>
                 <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color,lineHeight:"1",marginBottom:"6px"}}>
@@ -828,6 +829,68 @@ function Dashboard({ caps, empresas, fichaActiva, setFichaActiva }) {
           })}
         </div>
       </div>
+
+      {/* Panel mes seleccionado */}
+      {filtroMesDash !== null && (()=>{
+        const mesIdx = filtroMesDash;
+        const capsDelMes = caps.filter(c=>{
+          if(!c.mes_programado) return false;
+          const d = new Date(c.mes_programado);
+          return d.getMonth()===mesIdx && d.getFullYear()===new Date().getFullYear();
+        });
+        const ejecutadasMes = capsDelMes.filter(c=>c.estado==="Ejecutada");
+        const pctMes = capsDelMes.length>0 ? Math.round((ejecutadasMes.length/capsDelMes.length)*100) : 0;
+        return (
+          <div className="card" style={{padding:"20px",marginBottom:"20px",border:"1px solid #c9a84c30"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px",flexWrap:"wrap",gap:"10px"}}>
+              <div>
+                <div style={{fontSize:"11px",color:"#a8893a",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"2px"}}>
+                  Capacitaciones de {MESES[mesIdx]} {new Date().getFullYear()}
+                </div>
+                <div style={{fontSize:"18px",fontWeight:"700",fontFamily:"Fraunces,serif",color:"var(--text)"}}>
+                  {ejecutadasMes.length} de {capsDelMes.length} ejecutadas · {pctMes}%
+                </div>
+              </div>
+              <button type="button" onClick={()=>setFiltroMesDash(null)} style={{fontSize:"12px",padding:"5px 12px",border:"0.5px solid var(--border)",borderRadius:"7px",background:"none",color:"var(--text2)",cursor:"pointer"}}>✕ Cerrar</button>
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:"var(--surface2)"}}>
+                  {["#","Nombre","Tipo","Responsable","Estado","Asistencia","Evidencias"].map(h=>(
+                    <th key={h} style={{fontSize:"10px",fontWeight:"600",color:"var(--text3)",textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid var(--border)",textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {capsDelMes.map((c,idx)=>{
+                    const pctA = c.trabajadores_programados>0 ? Math.round((c.trabajadores_asistieron/c.trabajadores_programados)*100) : null;
+                    const evidOk = [c.evid_asistencia,c.evid_evaluacion,c.evid_ficha,c.evid_memorias].filter(Boolean).length;
+                    const estadoColor = {"Sin iniciar":"#94a3b8","En proceso":"#d97706","Ejecutada":"#059669"};
+                    const estadoBg = {"Sin iniciar":"#f1f5f9","En proceso":"#fffbeb","Ejecutada":"#ecfdf5"};
+                    return (
+                      <tr key={c.id} style={{borderBottom:"0.5px solid var(--border)"}}>
+                        <td style={{padding:"9px 12px",fontSize:"12px",color:"var(--text3)",fontWeight:"600"}}>{idx+1}</td>
+                        <td style={{padding:"9px 12px",fontSize:"13px",fontWeight:"500",color:"var(--text)",maxWidth:"200px"}}>{c.nombre.length>50?c.nombre.slice(0,50)+"…":c.nombre}</td>
+                        <td style={{padding:"9px 12px",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{c.tipo_formacion||"—"}</td>
+                        <td style={{padding:"9px 12px",fontSize:"12px",color:"var(--text2)",whiteSpace:"nowrap"}}>{c.responsable||"—"}</td>
+                        <td style={{padding:"9px 12px"}}>
+                          <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 10px",borderRadius:"20px",background:estadoBg[c.estado]||"#f1f5f9",color:estadoColor[c.estado]||"#94a3b8",whiteSpace:"nowrap"}}>{c.estado}</span>
+                        </td>
+                        <td style={{padding:"9px 12px",fontSize:"12px",color:"var(--text2)"}}>{pctA!==null?`${c.trabajadores_asistieron}/${c.trabajadores_programados} (${pctA}%)`:"—"}</td>
+                        <td style={{padding:"9px 12px"}}>
+                          <span style={{fontSize:"11px",fontWeight:"600",color:evidOk===4?"#16a34a":evidOk>=2?"#d97706":"#dc2626"}}>
+                            {evidOk}/4 {evidOk===4?"✓":"pendientes"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {capsDelMes.length===0 && <tr><td colSpan="7" style={{textAlign:"center",padding:"20px",color:"var(--text3)",fontSize:"13px"}}>No hay capacitaciones programadas para este mes.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Próximas capacitaciones - 2 meses */}
       {(()=>{
@@ -915,6 +978,11 @@ function CapForm({ cap, empresas, token, onSave, onClose }) {
       if(!form.nombre.trim()) throw new Error("El nombre es obligatorio.");
       // Eficacia es opcional al ejecutar — se completa al cierre del mes
       const payload = {...form};
+      // Include checkbox evidencias
+      payload.evid_asistencia = !!form.evid_asistencia;
+      payload.evid_evaluacion = !!form.evid_evaluacion;
+      payload.evid_ficha = !!form.evid_ficha;
+      payload.evid_memorias = !!form.evid_memorias;
       // Fix integer fields — send null instead of empty string
       if(!payload.numero || payload.numero === "") payload.numero = null;
       else payload.numero = parseInt(payload.numero) || null;
@@ -1052,33 +1120,21 @@ function CapForm({ cap, empresas, token, onSave, onClose }) {
           </>}
 
           <div className="section-title">Evidencias</div>
-          {existingEvid.length>0 && <div style={{marginBottom:"12px"}}>
-            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"6px",fontWeight:"600"}}>Archivos cargados</div>
-            {existingEvid.map(ev=>(
-              <div key={ev.id} className="file-item">
-                <span style={{display:"flex",alignItems:"center",gap:"6px"}}>{Ico.file} {ev.nombre_archivo} <span style={{fontSize:"11px",color:"var(--text3)"}}>({ev.tipo})</span></span>
-                <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
-                  <a href={ev.url} target="_blank" rel="noreferrer" style={{fontSize:"12px",color:"var(--accent2)"}}>Ver</a>
-                  <button type="button" onClick={()=>deleteEvid(ev.id)} style={{background:"none",color:"var(--danger)",padding:"0"}}>{Ico.trash}</button>
-                </div>
-              </div>
+          <div style={{background:"var(--surface2)",borderRadius:"10px",padding:"16px",marginBottom:"8px"}}>
+            <div style={{fontSize:"12px",color:"var(--text2)",marginBottom:"12px"}}>Marcar las evidencias disponibles para esta capacitación:</div>
+            {[
+              {key:"evid_asistencia", label:"Lista de asistencia a capacitación"},
+              {key:"evid_evaluacion", label:"Evaluación de conocimientos u otro soporte"},
+              {key:"evid_ficha", label:"Ficha técnica de formación"},
+              {key:"evid_memorias", label:"Memorias de la capacitación"},
+            ].map(ev=>(
+              <label key={ev.key} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 12px",marginBottom:"6px",borderRadius:"8px",cursor:"pointer",background:form[ev.key]?"#ecfdf5":"var(--surface)",border:"0.5px solid",borderColor:form[ev.key]?"#c9a84c":"var(--border)",transition:"all 0.15s"}}>
+                <input type="checkbox" checked={!!form[ev.key]} onChange={e=>set(ev.key,e.target.checked)} style={{width:"16px",height:"16px",accentColor:"#c9a84c",cursor:"pointer",flexShrink:0}}/>
+                <span style={{fontSize:"13px",color:form[ev.key]?"#6b4e1a":"var(--text2)",fontWeight:form[ev.key]?"500":"400"}}>{ev.label}</span>
+                {form[ev.key] && <span style={{marginLeft:"auto",fontSize:"11px",color:"#c9a84c",fontWeight:"600"}}>✓</span>}
+              </label>
             ))}
-          </div>}
-          {TIPOS_EVIDENCIA.map(({key,label})=>{
-            const pending = evidencias.find(e=>e.tipo===key);
-            return (
-              <div key={key} style={{marginBottom:"10px"}}>
-                <label className="label">{label}</label>
-                <label className="upload-zone">
-                  <input type="file" style={{display:"none"}} onChange={e=>{ const f=e.target.files[0]; if(f) setEvidencias(p=>[...p.filter(x=>x.tipo!==key),{tipo:key,file:f}]); }} accept=".pdf,.png,.jpg,.jpeg,.pptx,.xlsx,.docx"/>
-                  {pending
-                    ? <div style={{fontSize:"13px",color:"var(--accent)"}}>{Ico.file} {pending.file.name}</div>
-                    : <div style={{color:"var(--text3)",fontSize:"13px"}}>{Ico.upload}<br/>Haz clic para subir {label.toLowerCase()}</div>}
-                </label>
-              </div>
-            );
-          })}
-        </div>
+          </div></div>
         <div className="modal-footer">
           <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
           <button type="button" className="btn-primary" onClick={save} disabled={loading}>{loading?"Guardando…":"Guardar"}</button>
@@ -1426,6 +1482,17 @@ function Empresas({ empresas, token, onRefresh }) {
               {err && <div className="alert alert-err">{err}</div>}
               <div className="field"><label className="label">Nombre de la empresa *</label><input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej: Química Orión SAS"/></div>
               <div className="field"><label className="label">Código (siglas)</label><input value={codigo} onChange={e=>setCodigo(e.target.value)} placeholder="Ej: QO" style={{textTransform:"uppercase"}}/></div>
+            </div>
+            <div className="field" style={{marginTop:"8px"}}>
+              <label className="label">Estado</label>
+              <div style={{display:"flex",gap:"16px",marginTop:"4px"}}>
+                <label style={{display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",fontSize:"14px"}}>
+                  <input type="radio" checked={activo} onChange={()=>setActivo(true)} style={{accentColor:"#c9a84c"}}/> Activa
+                </label>
+                <label style={{display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",fontSize:"14px"}}>
+                  <input type="radio" checked={!activo} onChange={()=>setActivo(false)} style={{accentColor:"#dc2626"}}/> Inactiva
+                </label>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={close}>Cancelar</button>
@@ -1889,8 +1956,9 @@ function FormPrestamo({ data, libros, empleados=[], token, onSave, onClose, apiB
         const esTardio = data.fecha_devolucion_esperada && fechaReal > fechaEsperada;
         let fechaSancionFin = null;
         if(esTardio) {
+          const diasRetraso = Math.ceil((new Date(form.fecha_devolucion_real) - new Date(data.fecha_devolucion_esperada)) / (24*3600*1000));
           const sancion = new Date(form.fecha_devolucion_real);
-          sancion.setMonth(sancion.getMonth() + 3);
+          sancion.setDate(sancion.getDate() + diasRetraso);
           fechaSancionFin = sancion.toISOString().slice(0,10);
           // Update empleado with sancion
           const emp = empleados.find(e=>e.cedula===data.cedula||e.nombre===data.nombre_lector);
@@ -1958,11 +2026,12 @@ function FormPrestamo({ data, libros, empleados=[], token, onSave, onClose, apiB
                     <div style={{fontSize:"12px",color:"#059669",marginTop:"6px",fontWeight:"500"}}>✓ Devolución a tiempo — sin sanción</div>
                   );
                   const sancion = new Date(form.fecha_devolucion_real);
-                  sancion.setMonth(sancion.getMonth()+3);
+                  const diasRetraso = Math.ceil((new Date(form.fecha_devolucion_real) - new Date(data.fecha_devolucion_esperada)) / (24*3600*1000));
+                  sancion.setDate(sancion.getDate() + diasRetraso);
                   return (
                     <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:"8px",padding:"12px",marginTop:"8px"}}>
-                      <div style={{fontSize:"12px",fontWeight:"600",color:"#991b1b",marginBottom:"4px"}}>⚠️ Devolución tardía — se aplicará sanción</div>
-                      <div style={{fontSize:"12px",color:"#dc2626"}}>Sanción: 3 meses de suspensión</div>
+                      <div style={{fontSize:"12px",fontWeight:"600",color:"#991b1b",marginBottom:"4px"}}>⚠️ Devolución tardía — {diasRetraso} día{diasRetraso!==1?"s":""} de sanción</div>
+                      <div style={{fontSize:"12px",color:"#dc2626"}}>Sanción: {diasRetraso} día{diasRetraso!==1?"s":""} de suspensión (mismos días de retraso)</div>
                       <div style={{fontSize:"13px",fontWeight:"600",color:"#991b1b",marginTop:"6px"}}>
                         Podrá solicitar préstamos a partir del: {sancion.toLocaleDateString("es-CO", {day:"numeric",month:"long",year:"numeric"})}
                       </div>
@@ -3033,7 +3102,7 @@ function App() {
     setLoading(true);
     try {
       const [emps, capList] = await Promise.all([
-        api("empresas?select=*&order=nombre","",token),
+        api("empresas?select=*&order=nombre&activo=eq.true","",token),
         api("capacitaciones?select=*&order=numero","",token),
       ]);
       setEmpresas(emps||[]);
@@ -3049,7 +3118,8 @@ function App() {
   if(moduloActivo === "biblioteca") return <ModuloBiblioteca token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
   if(moduloActivo === "seleccion") return <ModuloSeleccion token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
 
-  const filteredCaps = filtroEmpresa ? caps.filter(c=>c.empresa_id===filtroEmpresa) : caps;
+  const empresasFormacion = empresas.filter(e=>e.codigo !== 'ALT');
+  const filteredCaps = filtroEmpresa ? caps.filter(c=>c.empresa_id===filtroEmpresa) : caps.filter(c=>empresasFormacion.some(e=>e.id===c.empresa_id));
 
   return (
     <div className="app-layout">
@@ -3096,10 +3166,10 @@ function App() {
         {loading
           ? <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",color:"var(--text3)"}}>Cargando datos…</div>
           : page==="dashboard"
-            ? <Dashboard caps={filteredCaps} empresas={empresas} fichaActiva={fichaActiva} setFichaActiva={setFichaActiva}/>
+            ? <Dashboard caps={filteredCaps} empresas={empresasFormacion} fichaActiva={fichaActiva} setFichaActiva={setFichaActiva}/>
             : page==="empresas" && isAdmin
               ? <Empresas empresas={empresas} token={token} onRefresh={loadData}/>
-              : <Listado caps={filteredCaps} empresas={empresas} token={token} onRefresh={loadData} isAdmin={isAdmin}/>
+              : <Listado caps={filteredCaps} empresas={empresasFormacion} token={token} onRefresh={loadData} isAdmin={isAdmin}/>
         }
       </div>
     </div>
