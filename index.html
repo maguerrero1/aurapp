@@ -2974,6 +2974,12 @@ function ModulosHome({ isAdmin, modulosPermitidos=[], onSelectModulo, onLogout, 
       icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
     },
     {
+      id: "plan_estrategico", nombre: "Plan Estratégico", desc: "Planeación y seguimiento estratégico GH",
+      activo: true, acceso: isAdmin || modulosPermitidos.includes("plan_estrategico"),
+      accentColor: "#6366f1", iconBg: "#eff0ff", badgeBg: "#eff0ff", badgeColor: "#4f52c9", badgeBorder: "#a5b4fc",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#6366f1" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    },
+    {
       id: "evaluacion", nombre: "Evaluación", desc: "Desempeño y seguimiento",
       activo: false, acceso: false, accentColor: "#ece6dd", iconBg: "#f4f1ec",
       badgeBg: "#f4f1ec", badgeColor: "#b8b0a6", badgeBorder: "#ece6dd",
@@ -3057,6 +3063,1274 @@ function ModulosHome({ isAdmin, modulosPermitidos=[], onSelectModulo, onLogout, 
   );
 }
 
+
+
+// ── MÓDULO PLAN ESTRATÉGICO GH — MULTI-AÑO ──
+
+// ── Helpers de año ──
+const ANIO_ACTUAL = new Date().getFullYear();
+
+function aniosDisponibles(lista) {
+  const set = new Set(lista.map(o => o.anio).filter(Boolean));
+  return Array.from(set).sort((a,b)=>b-a);
+}
+
+// ── Subcomponente: Badge de estado ──
+function BadgeEstado({ estado }) {
+  const cfg = {
+    "Pendiente":    { bg:"#f1f5f9", color:"#475569", border:"#cbd5e1" },
+    "En ejecución": { bg:"#eff6ff", color:"#2563eb", border:"#93c5fd" },
+    "En riesgo":    { bg:"#fffbeb", color:"#d97706", border:"#fcd34d" },
+    "Completado":   { bg:"#f0fdf4", color:"#16a34a", border:"#86efac" },
+    "Finalizada":   { bg:"#f0fdf4", color:"#16a34a", border:"#86efac" },
+    "Cancelado":    { bg:"#fef2f2", color:"#dc2626", border:"#fca5a5" },
+    "Cancelada":    { bg:"#fef2f2", color:"#dc2626", border:"#fca5a5" },
+  };
+  const s = cfg[estado] || { bg:"#f4f1ec", color:"#9e9890", border:"#ece6dd" };
+  return <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 9px",borderRadius:"20px",background:s.bg,color:s.color,border:`1px solid ${s.border}`}}>{estado||"—"}</span>;
+}
+
+// ── Subcomponente: Badge de prioridad ──
+function BadgePrioridad({ p }) {
+  const cfg = {
+    "Alta":  { bg:"#fef2f2", color:"#dc2626", border:"#fca5a5" },
+    "Media": { bg:"#fffbeb", color:"#d97706", border:"#fcd34d" },
+    "Baja":  { bg:"#f0fdf4", color:"#16a34a", border:"#86efac" },
+  };
+  const s = cfg[p] || { bg:"#f4f1ec", color:"#9e9890", border:"#ece6dd" };
+  return <span style={{fontSize:"11px",fontWeight:"600",padding:"2px 9px",borderRadius:"20px",background:s.bg,color:s.color,border:`1px solid ${s.border}`}}>{p||"—"}</span>;
+}
+
+// ── Subcomponente: Semáforo de KPI ──
+function SemaforoKPI({ actual, meta, tipo }) {
+  if (actual == null || meta == null) return <span style={{color:"#9e9890"}}>—</span>;
+  const pct = meta !== 0 ? (actual / meta) * 100 : 0;
+  let color, label;
+  if (tipo === "menor_igual") {
+    if (actual <= meta) { color = "#16a34a"; label = "✓"; }
+    else if (pct <= 120) { color = "#d97706"; label = "⚠"; }
+    else { color = "#dc2626"; label = "✗"; }
+  } else {
+    if (pct >= 90) { color = "#16a34a"; label = "✓"; }
+    else if (pct >= 70) { color = "#d97706"; label = "⚠"; }
+    else { color = "#dc2626"; label = "✗"; }
+  }
+  return <span style={{color, fontWeight:"700", fontSize:"15px"}}>{label}</span>;
+}
+
+// ── Subcomponente: Barra de progreso ──
+function BarraAvance({ pct, color }) {
+  const c = color || "#c9a84c";
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+      <div style={{flex:1,background:"#ece6dd",borderRadius:"4px",height:"6px",overflow:"hidden"}}>
+        <div style={{width:`${pct||0}%`,height:"100%",background:c,borderRadius:"4px",transition:"width 0.3s"}}/>
+      </div>
+      <span style={{fontSize:"12px",color:"#5a534c",fontWeight:"500",minWidth:"32px"}}>{pct||0}%</span>
+    </div>
+  );
+}
+
+// ── Selector de año ──
+function SelectorAnio({ anio, aniosUsados, onChange, onNuevo }) {
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+      <span style={{fontSize:"11px",color:"#9e9890",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em"}}>Año</span>
+      <select value={anio} onChange={e=>onChange(+e.target.value)}
+        style={{border:"1px solid #ece6dd",borderRadius:"8px",padding:"5px 10px",fontSize:"13px",fontWeight:"700",color:"#1a1714",background:"#fff",cursor:"pointer",minWidth:"80px"}}>
+        {aniosUsados.map(a=><option key={a} value={a}>{a}</option>)}
+        {!aniosUsados.includes(anio)&&<option value={anio}>{anio}</option>}
+      </select>
+      <button type="button" onClick={onNuevo}
+        style={{fontSize:"12px",color:"#6366f1",background:"#eff0ff",border:"1px solid #a5b4fc",borderRadius:"8px",padding:"5px 10px",cursor:"pointer",fontWeight:"500",whiteSpace:"nowrap"}}>
+        + Nuevo año
+      </button>
+    </div>
+  );
+}
+
+// ── Modal Nuevo año ──
+function ModalNuevoAnio({ aniosExistentes, onCrear, onClose }) {
+  const sugerido = Math.max(...aniosExistentes.concat([ANIO_ACTUAL])) + 1;
+  const [nuevoAnio, setNuevoAnio] = useState(String(sugerido));
+  const [copiarDe, setCopiarDe] = useState("");
+  const [copiando, setCopiando] = useState(false);
+
+  const crear = async () => {
+    const n = parseInt(nuevoAnio, 10);
+    if (!n || n < 2020 || n > 2100) return alert("Año inválido");
+    if (aniosExistentes.includes(n)) return alert(`El año ${n} ya tiene datos cargados`);
+    setCopiando(true);
+    try {
+      await onCrear(n, copiarDe ? parseInt(copiarDe,10) : null);
+    } finally { setCopiando(false); }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal" style={{maxWidth:"400px"}}>
+        <div className="modal-header">
+          <h3 style={{fontFamily:"Fraunces,serif",fontSize:"16px"}}>Iniciar nuevo año de planeación</h3>
+          <button type="button" onClick={onClose} style={{background:"none",border:"none",fontSize:"20px",cursor:"pointer",color:"#9e9890"}}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="field">
+            <label className="label">Año a crear *</label>
+            <input type="number" value={nuevoAnio} onChange={e=>setNuevoAnio(e.target.value)} min="2020" max="2100" placeholder="Ej. 2028"/>
+          </div>
+          {aniosExistentes.length > 0 && (
+            <div className="field">
+              <label className="label">Copiar estructura de subprocesos desde</label>
+              <select value={copiarDe} onChange={e=>setCopiarDe(e.target.value)}>
+                <option value="">— Empezar en blanco —</option>
+                {aniosExistentes.map(a=><option key={a} value={a}>{a}</option>)}
+              </select>
+              <p style={{fontSize:"11px",color:"#9e9890",marginTop:"4px"}}>
+                Si copias, se duplican los objetivos e iniciativas del año elegido como punto de partida para el nuevo.
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={crear} disabled={copiando}>
+            {copiando?"Creando…":"Crear año"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard Plan Estratégico ──
+function DashboardPlanEstrategico({ token, subprocesos, anio, onSelectSubproceso }) {
+  const [data, setData] = useState({ objetivos:[], iniciativas:[], indicadores:[] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [obj, ini, ind] = await Promise.all([
+          api(`objetivos_estrategicos?anio=eq.${anio}&select=*,subprocesos_gh(nombre,color)`, {}, token),
+          api(`iniciativas_gh?anio=eq.${anio}&select=*`, {}, token),
+          api(`indicadores_estrategicos?select=*,objetivos_estrategicos!inner(anio)&objetivos_estrategicos.anio=eq.${anio}`, {}, token),
+        ]);
+        setData({ objetivos: obj||[], iniciativas: ini||[], indicadores: ind||[] });
+      } catch(e){ console.error(e); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, [token, anio]);
+
+  if (loading) return <div style={{textAlign:"center",padding:"60px",color:"#9e9890"}}>Cargando plan {anio}…</div>;
+
+  const { objetivos, iniciativas, indicadores } = data;
+  const totalObj = objetivos.length;
+  const avanceGeneral = totalObj > 0 ? Math.round(objetivos.reduce((s,o)=>s+(o.porcentaje_avance||0),0)/totalObj) : 0;
+  const iniPendiente = iniciativas.filter(i=>i.estado==="Pendiente").length;
+  const iniEjecucion = iniciativas.filter(i=>i.estado==="En ejecución").length;
+  const iniRiesgo    = iniciativas.filter(i=>i.estado==="En riesgo").length;
+  const iniFinalizadas = iniciativas.filter(i=>i.estado==="Finalizada").length;
+
+  const hoy = new Date();
+  const vencidas = iniciativas.filter(i=>i.fecha_fin&&new Date(i.fecha_fin)<hoy&&i.estado!=="Finalizada"&&i.estado!=="Cancelada");
+  const proximas  = iniciativas.filter(i=>{
+    if(!i.fecha_fin) return false;
+    const d=new Date(i.fecha_fin); const diff=(d-hoy)/(1000*60*60*24);
+    return diff>=0&&diff<=14&&i.estado!=="Finalizada";
+  });
+
+  const avancePorSubproceso = subprocesos.map(sp=>{
+    const objSP=objetivos.filter(o=>o.subproceso_id===sp.id);
+    const avg=objSP.length>0?Math.round(objSP.reduce((s,o)=>s+(o.porcentaje_avance||0),0)/objSP.length):0;
+    return {...sp, avance:avg, totalObj:objSP.length};
+  });
+
+  const stats=[
+    {label:"Objetivos estratégicos",val:totalObj,color:"#6366f1"},
+    {label:"Iniciativas planificadas",val:iniciativas.length,color:"#c9a84c"},
+    {label:"Indicadores (KPI)",val:indicadores.length,color:"#8b5cf6"},
+    {label:"Avance general",val:`${avanceGeneral}%`,color:"#10b981"},
+  ];
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <h2 style={{fontFamily:"Fraunces,serif",fontSize:"22px",fontWeight:"700",color:"#1a1714"}}>Plan Estratégico · Gestión Humana {anio}</h2>
+        <p style={{fontSize:"13px",color:"#9e9890",marginTop:"4px"}}>Centro de control estratégico del área</p>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"24px"}}>
+        {stats.map(s=>(
+          <div key={s.label} className="stat-card">
+            <div className="stat-num" style={{color:s.color}}>{s.val}</div>
+            <div className="stat-label">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {totalObj===0
+        ? <div className="empty-state">
+            <div style={{fontSize:"36px",marginBottom:"12px"}}>📋</div>
+            <div style={{fontWeight:"600",color:"#5a534c",marginBottom:"6px"}}>Sin datos para {anio}</div>
+            <div style={{fontSize:"13px",color:"#9e9890"}}>Selecciona un subproceso en el menú lateral para comenzar a cargar objetivos e iniciativas.</div>
+          </div>
+        : <>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"10px",marginBottom:"24px"}}>
+            {[
+              {label:"Pendientes",val:iniPendiente,bg:"#f1f5f9",color:"#475569"},
+              {label:"En ejecución",val:iniEjecucion,bg:"#eff6ff",color:"#2563eb"},
+              {label:"En riesgo",val:iniRiesgo,bg:"#fffbeb",color:"#d97706"},
+              {label:"Finalizadas",val:iniFinalizadas,bg:"#f0fdf4",color:"#16a34a"},
+            ].map(s=>(
+              <div key={s.label} style={{background:s.bg,border:`1px solid ${s.color}22`,borderRadius:"10px",padding:"14px 16px",textAlign:"center"}}>
+                <div style={{fontFamily:"Fraunces,serif",fontSize:"26px",fontWeight:"700",color:s.color}}>{s.val}</div>
+                <div style={{fontSize:"11px",color:s.color,fontWeight:"600",marginTop:"2px"}}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"24px"}}>
+            <div className="card" style={{padding:"20px"}}>
+              <div style={{fontWeight:"600",fontSize:"13px",marginBottom:"16px",color:"#1a1714"}}>Avance por subproceso</div>
+              {avancePorSubproceso.map(sp=>(
+                <div key={sp.id} style={{marginBottom:"14px",cursor:"pointer"}} onClick={()=>onSelectSubproceso(sp)}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"5px"}}>
+                    <span style={{fontSize:"12px",fontWeight:"500",color:"#1a1714"}}>{sp.icono} {sp.nombre}</span>
+                    <span style={{fontSize:"11px",color:"#9e9890"}}>{sp.totalObj} obj.</span>
+                  </div>
+                  <BarraAvance pct={sp.avance} color={sp.color}/>
+                </div>
+              ))}
+            </div>
+            <div className="card" style={{padding:"20px"}}>
+              <div style={{fontWeight:"600",fontSize:"13px",marginBottom:"16px",color:"#1a1714"}}>⚠ Alertas</div>
+              {vencidas.length===0&&proximas.length===0
+                ? <div style={{color:"#9e9890",fontSize:"13px",textAlign:"center",padding:"20px 0"}}>Sin alertas activas ✓</div>
+                : <>
+                  {vencidas.length>0&&(
+                    <>
+                      <div style={{fontSize:"11px",fontWeight:"600",color:"#dc2626",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Vencidas ({vencidas.length})</div>
+                      {vencidas.slice(0,4).map(i=>(
+                        <div key={i.id} style={{fontSize:"12px",color:"#1a1714",padding:"6px 0",borderBottom:"1px solid #f4f1ec"}}>
+                          🔴 {i.nombre}<span style={{fontSize:"11px",color:"#dc2626",marginLeft:"6px"}}>{i.fecha_fin}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {proximas.length>0&&(
+                    <>
+                      <div style={{fontSize:"11px",fontWeight:"600",color:"#d97706",margin:"10px 0 6px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Próximas a vencer ({proximas.length})</div>
+                      {proximas.slice(0,4).map(i=>(
+                        <div key={i.id} style={{fontSize:"12px",color:"#1a1714",padding:"6px 0",borderBottom:"1px solid #f4f1ec"}}>
+                          🟡 {i.nombre}<span style={{fontSize:"11px",color:"#d97706",marginLeft:"6px"}}>{i.fecha_fin}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              }
+            </div>
+          </div>
+        </>
+      }
+
+      <div style={{fontWeight:"600",fontSize:"13px",color:"#1a1714",marginBottom:"12px"}}>Subprocesos</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px"}}>
+        {avancePorSubproceso.map(sp=>(
+          <div key={sp.id} className="card" style={{padding:"18px",cursor:"pointer",borderLeft:`3px solid ${sp.color}`}}
+            onClick={()=>onSelectSubproceso(sp)}
+            onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.08)"}
+            onMouseLeave={e=>e.currentTarget.style.boxShadow=""}>
+            <div style={{fontSize:"22px",marginBottom:"8px"}}>{sp.icono}</div>
+            <div style={{fontSize:"13px",fontWeight:"600",color:"#1a1714",marginBottom:"4px"}}>{sp.nombre}</div>
+            <div style={{fontSize:"11px",color:"#9e9890",marginBottom:"10px"}}>{sp.totalObj} objetivo{sp.totalObj!==1?"s":""}</div>
+            <BarraAvance pct={sp.avance} color={sp.color}/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Vista Transversal / Consolidada ──
+function VistaTransversal({ token, subprocesos, anio }) {
+  const [tab, setTab] = useState("iniciativas");
+  const [data, setData] = useState({ objetivos:[], iniciativas:[], indicadores:[] });
+  const [loading, setLoading] = useState(true);
+  const [filtroResp, setFiltroResp] = useState("");
+  const [filtroTrim, setFiltroTrim] = useState("");
+
+  useEffect(()=>{
+    const load = async ()=>{
+      setLoading(true);
+      try {
+        const [obj,ini,ind] = await Promise.all([
+          api(`objetivos_estrategicos?anio=eq.${anio}&select=*,subprocesos_gh(nombre,color,icono)&order=created_at.desc`,{},token),
+          api(`iniciativas_gh?anio=eq.${anio}&select=*,objetivos_estrategicos(nombre,subprocesos_gh(nombre,color))&order=fecha_fin.asc`,{},token),
+          api(`indicadores_estrategicos?select=*,objetivos_estrategicos!inner(anio,nombre,subprocesos_gh(nombre,color))&objetivos_estrategicos.anio=eq.${anio}&order=created_at.desc`,{},token),
+        ]);
+        setData({objetivos:obj||[],iniciativas:ini||[],indicadores:ind||[]});
+      } catch(e){console.error(e);}
+      finally{setLoading(false);}
+    };
+    load();
+  },[token,anio]);
+
+  const hoy = new Date();
+  const tabs=[
+    {id:"iniciativas",label:"Todas las iniciativas"},
+    {id:"objetivos",label:"Todos los objetivos"},
+    {id:"indicadores",label:"Indicadores"},
+    {id:"responsable",label:"Por responsable"},
+    {id:"alertas",label:"Alertas"},
+  ];
+  const responsables=[...new Set([
+    ...data.iniciativas.map(i=>i.responsable_principal).filter(Boolean),
+    ...data.objetivos.map(o=>o.responsable).filter(Boolean),
+  ])].sort();
+
+  const iniVencidas=data.iniciativas.filter(i=>i.fecha_fin&&new Date(i.fecha_fin)<hoy&&i.estado!=="Finalizada"&&i.estado!=="Cancelada");
+  const iniRiesgo=data.iniciativas.filter(i=>i.estado==="En riesgo");
+
+  let iniFiltradas=data.iniciativas;
+  if(filtroResp) iniFiltradas=iniFiltradas.filter(i=>i.responsable_principal===filtroResp);
+  if(filtroTrim) iniFiltradas=iniFiltradas.filter(i=>i.trimestre===filtroTrim);
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <h2 style={{fontFamily:"Fraunces,serif",fontSize:"22px",fontWeight:"700"}}>Vista Transversal · {anio}</h2>
+        <p style={{fontSize:"13px",color:"#9e9890",marginTop:"4px"}}>Consulta consolidada de toda la gestión estratégica del año</p>
+      </div>
+      <div style={{display:"flex",gap:"6px",marginBottom:"20px",flexWrap:"wrap"}}>
+        {tabs.map(t=>(
+          <button key={t.id} type="button" onClick={()=>setTab(t.id)}
+            style={{padding:"7px 14px",borderRadius:"20px",fontSize:"12px",fontWeight:"500",border:"1px solid",
+              background:tab===t.id?"#1a1714":"transparent",color:tab===t.id?"#fff":"#5a534c",
+              borderColor:tab===t.id?"#1a1714":"#ece6dd",cursor:"pointer"}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {loading&&<div style={{textAlign:"center",padding:"40px",color:"#9e9890"}}>Cargando…</div>}
+      {!loading&&tab==="iniciativas"&&(
+        <>
+          <div style={{display:"flex",gap:"10px",marginBottom:"14px"}}>
+            <select value={filtroResp} onChange={e=>setFiltroResp(e.target.value)} style={{maxWidth:"200px",fontSize:"12px",padding:"6px 10px"}}>
+              <option value="">Todos los responsables</option>
+              {responsables.map(r=><option key={r} value={r}>{r}</option>)}
+            </select>
+            <select value={filtroTrim} onChange={e=>setFiltroTrim(e.target.value)} style={{maxWidth:"140px",fontSize:"12px",padding:"6px 10px"}}>
+              <option value="">Todos los trimestres</option>
+              {["T1","T2","T3","T4"].map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="card table-wrap">
+            <table><thead><tr>
+              <th>Iniciativa</th><th>Subproceso</th><th>Responsable</th>
+              <th>Trimestre</th><th>Fecha fin</th><th>Estado</th><th>Avance</th>
+            </tr></thead><tbody>
+              {iniFiltradas.length===0
+                ?<tr><td colSpan="7" style={{textAlign:"center",color:"#9e9890",padding:"30px"}}>Sin resultados</td></tr>
+                :iniFiltradas.map(i=>(
+                  <tr key={i.id}>
+                    <td style={{fontWeight:"500"}}>{i.nombre}</td>
+                    <td><span style={{fontSize:"11px",color:"#5a534c"}}>{i.objetivos_estrategicos?.subprocesos_gh?.icono} {i.objetivos_estrategicos?.subprocesos_gh?.nombre||"—"}</span></td>
+                    <td style={{fontSize:"12px"}}>{i.responsable_principal||"—"}</td>
+                    <td><span style={{fontSize:"11px",fontWeight:"600",color:"#6366f1"}}>{i.trimestre||"—"}</span></td>
+                    <td style={{fontSize:"12px",color:i.fecha_fin&&new Date(i.fecha_fin)<hoy&&i.estado!=="Finalizada"?"#dc2626":"#5a534c"}}>{i.fecha_fin||"—"}</td>
+                    <td><BadgeEstado estado={i.estado}/></td>
+                    <td style={{minWidth:"120px"}}><BarraAvance pct={i.porcentaje_avance}/></td>
+                  </tr>
+                ))
+              }
+            </tbody></table>
+          </div>
+        </>
+      )}
+      {!loading&&tab==="objetivos"&&(
+        <div className="card table-wrap">
+          <table><thead><tr>
+            <th>Objetivo</th><th>Subproceso</th><th>Responsable</th><th>Fecha fin</th><th>Estado</th><th>Avance</th>
+          </tr></thead><tbody>
+            {data.objetivos.map(o=>(
+              <tr key={o.id}>
+                <td style={{fontWeight:"500"}}>{o.nombre}</td>
+                <td><span style={{fontSize:"11px"}}>{o.subprocesos_gh?.icono} {o.subprocesos_gh?.nombre||"—"}</span></td>
+                <td style={{fontSize:"12px"}}>{o.responsable||"—"}</td>
+                <td style={{fontSize:"12px"}}>{o.fecha_fin||"—"}</td>
+                <td><BadgeEstado estado={o.estado}/></td>
+                <td style={{minWidth:"120px"}}><BarraAvance pct={o.porcentaje_avance}/></td>
+              </tr>
+            ))}
+          </tbody></table>
+        </div>
+      )}
+      {!loading&&tab==="indicadores"&&(
+        <div className="card table-wrap">
+          <table><thead><tr>
+            <th>KPI</th><th>Subproceso</th><th>Línea base</th><th>Actual</th><th>Meta</th><th>Estado</th><th>Responsable</th>
+          </tr></thead><tbody>
+            {data.indicadores.map(ind=>(
+              <tr key={ind.id}>
+                <td style={{fontWeight:"500"}}>{ind.nombre}</td>
+                <td style={{fontSize:"11px"}}>{ind.objetivos_estrategicos?.subprocesos_gh?.icono} {ind.objetivos_estrategicos?.subprocesos_gh?.nombre||"—"}</td>
+                <td style={{fontSize:"12px"}}>{ind.linea_base!=null?`${ind.linea_base} ${ind.unidad_medida||""}`.trim():"—"}</td>
+                <td style={{fontSize:"12px",fontWeight:"600"}}>{ind.resultado_actual!=null?`${ind.resultado_actual} ${ind.unidad_medida||""}`.trim():"—"}</td>
+                <td style={{fontSize:"12px"}}>{ind.meta!=null?`${ind.meta} ${ind.unidad_medida||""}`.trim():"—"}</td>
+                <td><SemaforoKPI actual={ind.resultado_actual} meta={ind.meta} tipo={ind.tipo_meta}/></td>
+                <td style={{fontSize:"12px"}}>{ind.responsable||"—"}</td>
+              </tr>
+            ))}
+          </tbody></table>
+        </div>
+      )}
+      {!loading&&tab==="responsable"&&(
+        <div>
+          {responsables.length===0
+            ?<div className="empty-state">No hay responsables registrados</div>
+            :responsables.map(r=>{
+              const objR=data.objetivos.filter(o=>o.responsable===r);
+              const iniR=data.iniciativas.filter(i=>i.responsable_principal===r||(i.responsables_apoyo&&i.responsables_apoyo.includes(r)));
+              return(
+                <div key={r} className="card" style={{padding:"18px",marginBottom:"12px"}}>
+                  <div style={{fontWeight:"600",fontSize:"14px",marginBottom:"12px",color:"#1a1714"}}>👤 {r}</div>
+                  <div style={{display:"flex",gap:"16px",fontSize:"12px",color:"#5a534c"}}>
+                    <span>🎯 {objR.length} objetivo{objR.length!==1?"s":""}</span>
+                    <span>⚡ {iniR.length} iniciativa{iniR.length!==1?"s":""}</span>
+                    <span>🔴 {iniR.filter(i=>i.estado==="En riesgo").length} en riesgo</span>
+                  </div>
+                  {iniR.length>0&&(
+                    <div style={{marginTop:"10px",display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                      {iniR.slice(0,5).map(i=>(
+                        <span key={i.id} style={{fontSize:"11px",background:"#f4f1ec",padding:"3px 8px",borderRadius:"12px",color:"#5a534c"}}>{i.nombre}</span>
+                      ))}
+                      {iniR.length>5&&<span style={{fontSize:"11px",color:"#9e9890"}}>+{iniR.length-5} más</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          }
+        </div>
+      )}
+      {!loading&&tab==="alertas"&&(
+        <div>
+          {iniVencidas.length===0&&iniRiesgo.length===0
+            ?<div className="empty-state">✅ Sin alertas activas</div>
+            :<>
+              {iniVencidas.length>0&&(
+                <>
+                  <div style={{fontWeight:"600",fontSize:"12px",color:"#dc2626",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:"8px"}}>🔴 Vencidas</div>
+                  <div className="card table-wrap" style={{marginBottom:"20px"}}>
+                    <table><thead><tr><th>Iniciativa</th><th>Responsable</th><th>Fecha fin</th><th>Estado</th></tr></thead>
+                    <tbody>{iniVencidas.map(i=>(
+                      <tr key={i.id}>
+                        <td style={{fontWeight:"500"}}>{i.nombre}</td>
+                        <td style={{fontSize:"12px"}}>{i.responsable_principal||"—"}</td>
+                        <td style={{fontSize:"12px",color:"#dc2626"}}>{i.fecha_fin}</td>
+                        <td><BadgeEstado estado={i.estado}/></td>
+                      </tr>
+                    ))}</tbody></table>
+                  </div>
+                </>
+              )}
+              {iniRiesgo.length>0&&(
+                <>
+                  <div style={{fontWeight:"600",fontSize:"12px",color:"#d97706",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:"8px"}}>🟡 En riesgo</div>
+                  <div className="card table-wrap">
+                    <table><thead><tr><th>Iniciativa</th><th>Responsable</th><th>Fecha fin</th><th>Avance</th></tr></thead>
+                    <tbody>{iniRiesgo.map(i=>(
+                      <tr key={i.id}>
+                        <td style={{fontWeight:"500"}}>{i.nombre}</td>
+                        <td style={{fontSize:"12px"}}>{i.responsable_principal||"—"}</td>
+                        <td style={{fontSize:"12px"}}>{i.fecha_fin||"—"}</td>
+                        <td style={{minWidth:"120px"}}><BarraAvance pct={i.porcentaje_avance}/></td>
+                      </tr>
+                    ))}</tbody></table>
+                  </div>
+                </>
+              )}
+            </>
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Formulario Objetivo ──
+function FormObjetivo({ subprocesoId, anio, objetivo, token, onSave, onClose }) {
+  const [form, setForm] = useState(objetivo || {
+    anio, subproceso_id:subprocesoId, nombre:"", descripcion:"", resultado_esperado:"",
+    fecha_inicio:"", fecha_fin:"", responsable:"", estado:"Pendiente", porcentaje_avance:0
+  });
+  const [saving, setSaving] = useState(false);
+  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  const save = async () => {
+    if(!form.nombre.trim()) return alert("El nombre es obligatorio");
+    setSaving(true);
+    try {
+      if(objetivo?.id){
+        await api(`objetivos_estrategicos?id=eq.${objetivo.id}`,{method:"PATCH",body:JSON.stringify({...form,updated_at:new Date().toISOString()})},token);
+      } else {
+        await api("objetivos_estrategicos",{method:"POST",prefer:"return=representation",body:JSON.stringify(form)},token);
+      }
+      onSave();
+    } catch(e){alert("Error al guardar: "+e.message);}
+    finally{setSaving(false);}
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontFamily:"Fraunces,serif",fontSize:"16px"}}>{objetivo?.id?"Editar":"Nuevo"} objetivo estratégico · {anio}</h3>
+          <button type="button" onClick={onClose} style={{background:"none",border:"none",fontSize:"20px",cursor:"pointer",color:"#9e9890"}}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="field"><label className="label">Nombre del objetivo *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej. Reducir tiempo de selección en un 30%"/></div>
+          <div className="field"><label className="label">Descripción</label><textarea value={form.descripcion||""} onChange={e=>set("descripcion",e.target.value)} rows="2"/></div>
+          <div className="field"><label className="label">Resultado esperado</label><textarea value={form.resultado_esperado||""} onChange={e=>set("resultado_esperado",e.target.value)} rows="2" placeholder="¿Qué se espera lograr al final?"/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Fecha de inicio</label><input type="date" value={form.fecha_inicio||""} onChange={e=>set("fecha_inicio",e.target.value)}/></div>
+            <div className="field"><label className="label">Fecha de finalización</label><input type="date" value={form.fecha_fin||""} onChange={e=>set("fecha_fin",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Responsable principal</label><input value={form.responsable||""} onChange={e=>set("responsable",e.target.value)}/></div>
+            <div className="field"><label className="label">Estado</label>
+              <select value={form.estado} onChange={e=>set("estado",e.target.value)}>
+                {["Pendiente","En ejecución","En riesgo","Completado","Cancelado"].map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="field">
+            <label className="label">Porcentaje de avance: {form.porcentaje_avance}%</label>
+            <input type="range" min="0" max="100" step="5" value={form.porcentaje_avance||0} onChange={e=>set("porcentaje_avance",+e.target.value)} style={{width:"100%",cursor:"pointer"}}/>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={save} disabled={saving}>{saving?"Guardando…":"Guardar objetivo"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Formulario Estrategia ──
+function FormEstrategia({ objetivoId, estrategia, token, onSave, onClose }) {
+  const [form, setForm] = useState(estrategia||{objetivo_id:objetivoId,nombre:"",descripcion:"",responsable:"",estado:"Pendiente"});
+  const [saving, setSaving] = useState(false);
+  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  const save = async () => {
+    if(!form.nombre.trim()) return alert("El nombre es obligatorio");
+    setSaving(true);
+    try {
+      if(estrategia?.id){
+        await api(`estrategias_gh?id=eq.${estrategia.id}`,{method:"PATCH",body:JSON.stringify({...form,updated_at:new Date().toISOString()})},token);
+      } else {
+        await api("estrategias_gh",{method:"POST",body:JSON.stringify(form)},token);
+      }
+      onSave();
+    } catch(e){alert("Error: "+e.message);}
+    finally{setSaving(false);}
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontFamily:"Fraunces,serif",fontSize:"16px"}}>{estrategia?.id?"Editar":"Nueva"} estrategia</h3>
+          <button type="button" onClick={onClose} style={{background:"none",border:"none",fontSize:"20px",cursor:"pointer",color:"#9e9890"}}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="field"><label className="label">Nombre *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Línea de acción estratégica"/></div>
+          <div className="field"><label className="label">Descripción</label><textarea value={form.descripcion||""} onChange={e=>set("descripcion",e.target.value)} rows="2"/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Responsable</label><input value={form.responsable||""} onChange={e=>set("responsable",e.target.value)}/></div>
+            <div className="field"><label className="label">Estado</label>
+              <select value={form.estado} onChange={e=>set("estado",e.target.value)}>
+                {["Pendiente","En ejecución","En riesgo","Completado","Cancelado"].map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={save} disabled={saving}>{saving?"Guardando…":"Guardar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Formulario Indicador ──
+function FormIndicador({ objetivoId, indicador, token, onSave, onClose }) {
+  const [form, setForm] = useState(indicador||{
+    objetivo_id:objetivoId, nombre:"", descripcion:"", formula:"", unidad_medida:"",
+    frecuencia:"Mensual", linea_base:"", resultado_actual:"", meta:"",
+    tipo_meta:"mayor_igual", responsable:"", fuente_informacion:""
+  });
+  const [saving, setSaving] = useState(false);
+  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  const save = async () => {
+    if(!form.nombre.trim()) return alert("El nombre es obligatorio");
+    setSaving(true);
+    try {
+      const payload={...form,
+        linea_base:form.linea_base!==""?+form.linea_base:null,
+        resultado_actual:form.resultado_actual!==""?+form.resultado_actual:null,
+        meta:form.meta!==""?+form.meta:null};
+      if(indicador?.id){
+        await api(`indicadores_estrategicos?id=eq.${indicador.id}`,{method:"PATCH",body:JSON.stringify({...payload,updated_at:new Date().toISOString()})},token);
+      } else {
+        await api("indicadores_estrategicos",{method:"POST",body:JSON.stringify(payload)},token);
+      }
+      onSave();
+    } catch(e){alert("Error: "+e.message);}
+    finally{setSaving(false);}
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontFamily:"Fraunces,serif",fontSize:"16px"}}>{indicador?.id?"Editar":"Nuevo"} KPI / Indicador</h3>
+          <button type="button" onClick={onClose} style={{background:"none",border:"none",fontSize:"20px",cursor:"pointer",color:"#9e9890"}}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="field"><label className="label">Nombre del KPI *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej. Tasa de cobertura de capacitaciones"/></div>
+          <div className="field"><label className="label">Descripción</label><textarea value={form.descripcion||""} onChange={e=>set("descripcion",e.target.value)} rows="2"/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Fórmula de cálculo</label><input value={form.formula||""} onChange={e=>set("formula",e.target.value)} placeholder="Ej. (Capacitados / Total) × 100"/></div>
+            <div className="field"><label className="label">Unidad de medida</label><input value={form.unidad_medida||""} onChange={e=>set("unidad_medida",e.target.value)} placeholder="%, días, #..."/></div>
+          </div>
+          <div className="grid3">
+            <div className="field"><label className="label">Línea base</label><input type="number" value={form.linea_base||""} onChange={e=>set("linea_base",e.target.value)}/></div>
+            <div className="field"><label className="label">Resultado actual</label><input type="number" value={form.resultado_actual||""} onChange={e=>set("resultado_actual",e.target.value)}/></div>
+            <div className="field"><label className="label">Meta del año</label><input type="number" value={form.meta||""} onChange={e=>set("meta",e.target.value)}/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Frecuencia de medición</label>
+              <select value={form.frecuencia} onChange={e=>set("frecuencia",e.target.value)}>
+                {["Diaria","Semanal","Mensual","Trimestral","Semestral","Anual"].map(f=><option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Tipo de cumplimiento</label>
+              <select value={form.tipo_meta} onChange={e=>set("tipo_meta",e.target.value)}>
+                <option value="mayor_igual">Se cumple cuando es ≥ a la meta</option>
+                <option value="menor_igual">Se cumple cuando es ≤ a la meta</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Responsable de medición</label><input value={form.responsable||""} onChange={e=>set("responsable",e.target.value)}/></div>
+            <div className="field"><label className="label">Fuente de información</label><input value={form.fuente_informacion||""} onChange={e=>set("fuente_informacion",e.target.value)} placeholder="Ej. RRHH, Supabase, Excel..."/></div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={save} disabled={saving}>{saving?"Guardando…":"Guardar KPI"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Formulario Iniciativa ──
+function FormIniciativa({ subprocesoId, anio, objetivoId, iniciativa, token, onSave, onClose }) {
+  const [form, setForm] = useState(iniciativa||{
+    anio, estrategia_id:null, objetivo_id:objetivoId||null, subproceso_id:subprocesoId||null,
+    nombre:"", descripcion:"", actividades:"", responsable_principal:"",
+    responsables_apoyo:"", fecha_inicio:"", fecha_fin:"",
+    trimestre:"T1", prioridad:"Media", estado:"Pendiente",
+    porcentaje_avance:0, evidencias:"", observaciones:""
+  });
+  const [saving, setSaving] = useState(false);
+  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  const save = async () => {
+    if(!form.nombre.trim()) return alert("El nombre es obligatorio");
+    setSaving(true);
+    try {
+      if(iniciativa?.id){
+        await api(`iniciativas_gh?id=eq.${iniciativa.id}`,{method:"PATCH",body:JSON.stringify({...form,updated_at:new Date().toISOString()})},token);
+      } else {
+        await api("iniciativas_gh",{method:"POST",body:JSON.stringify(form)},token);
+      }
+      onSave();
+    } catch(e){alert("Error: "+e.message);}
+    finally{setSaving(false);}
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontFamily:"Fraunces,serif",fontSize:"16px"}}>{iniciativa?.id?"Editar":"Nueva"} iniciativa · {anio}</h3>
+          <button type="button" onClick={onClose} style={{background:"none",border:"none",fontSize:"20px",cursor:"pointer",color:"#9e9890"}}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="field"><label className="label">Nombre de la iniciativa *</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value)} placeholder="Ej. Implementar onboarding estructurado"/></div>
+          <div className="field"><label className="label">Descripción</label><textarea value={form.descripcion||""} onChange={e=>set("descripcion",e.target.value)} rows="2"/></div>
+          <div className="field"><label className="label">Actividades / Tareas</label><textarea value={form.actividades||""} onChange={e=>set("actividades",e.target.value)} rows="2" placeholder="Lista de actividades o tareas clave"/></div>
+          <div className="grid2">
+            <div className="field"><label className="label">Responsable principal</label><input value={form.responsable_principal||""} onChange={e=>set("responsable_principal",e.target.value)}/></div>
+            <div className="field"><label className="label">Responsables de apoyo</label><input value={form.responsables_apoyo||""} onChange={e=>set("responsables_apoyo",e.target.value)} placeholder="Separados por coma"/></div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label className="label">Fecha de inicio</label><input type="date" value={form.fecha_inicio||""} onChange={e=>set("fecha_inicio",e.target.value)}/></div>
+            <div className="field"><label className="label">Fecha de finalización</label><input type="date" value={form.fecha_fin||""} onChange={e=>set("fecha_fin",e.target.value)}/></div>
+          </div>
+          <div className="grid3">
+            <div className="field"><label className="label">Trimestre</label>
+              <select value={form.trimestre} onChange={e=>set("trimestre",e.target.value)}>
+                {["T1","T2","T3","T4"].map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Prioridad</label>
+              <select value={form.prioridad} onChange={e=>set("prioridad",e.target.value)}>
+                {["Alta","Media","Baja"].map(p=><option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="field"><label className="label">Estado</label>
+              <select value={form.estado} onChange={e=>set("estado",e.target.value)}>
+                {["Pendiente","En ejecución","En riesgo","Finalizada","Cancelada"].map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="field">
+            <label className="label">Porcentaje de avance: {form.porcentaje_avance}%</label>
+            <input type="range" min="0" max="100" step="5" value={form.porcentaje_avance||0} onChange={e=>set("porcentaje_avance",+e.target.value)} style={{width:"100%",cursor:"pointer"}}/>
+          </div>
+          <div className="field"><label className="label">Evidencias / Soportes</label><textarea value={form.evidencias||""} onChange={e=>set("evidencias",e.target.value)} rows="2" placeholder="Documentos, enlaces, archivos adjuntos..."/></div>
+          <div className="field"><label className="label">Observaciones y novedades</label><textarea value={form.observaciones||""} onChange={e=>set("observaciones",e.target.value)} rows="2"/></div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={save} disabled={saving}>{saving?"Guardando…":"Guardar iniciativa"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Formulario Avance de Iniciativa ──
+function FormAvance({ iniciativaId, token, onSave, onClose }) {
+  const [form, setForm] = useState({iniciativa_id:iniciativaId,fecha:new Date().toISOString().split("T")[0],porcentaje_avance:0,descripcion_avance:"",novedades:"",evidencias:"",registrado_por:""});
+  const [saving, setSaving] = useState(false);
+  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  const save = async () => {
+    if(!form.descripcion_avance.trim()) return alert("La descripción del avance es obligatoria");
+    setSaving(true);
+    try {
+      await api("avances_iniciativa",{method:"POST",body:JSON.stringify(form)},token);
+      await api(`iniciativas_gh?id=eq.${iniciativaId}`,{method:"PATCH",body:JSON.stringify({porcentaje_avance:form.porcentaje_avance,updated_at:new Date().toISOString()})},token);
+      onSave();
+    } catch(e){alert("Error: "+e.message);}
+    finally{setSaving(false);}
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <h3 style={{fontFamily:"Fraunces,serif",fontSize:"16px"}}>Registrar avance</h3>
+          <button type="button" onClick={onClose} style={{background:"none",border:"none",fontSize:"20px",cursor:"pointer",color:"#9e9890"}}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="grid2">
+            <div className="field"><label className="label">Fecha</label><input type="date" value={form.fecha} onChange={e=>set("fecha",e.target.value)}/></div>
+            <div className="field"><label className="label">Registrado por</label><input value={form.registrado_por||""} onChange={e=>set("registrado_por",e.target.value)} placeholder="Tu nombre"/></div>
+          </div>
+          <div className="field">
+            <label className="label">Porcentaje de avance: {form.porcentaje_avance}%</label>
+            <input type="range" min="0" max="100" step="5" value={form.porcentaje_avance} onChange={e=>set("porcentaje_avance",+e.target.value)} style={{width:"100%",cursor:"pointer"}}/>
+          </div>
+          <div className="field"><label className="label">Descripción del avance *</label><textarea value={form.descripcion_avance} onChange={e=>set("descripcion_avance",e.target.value)} rows="3" placeholder="¿Qué se logró en este período?"/></div>
+          <div className="field"><label className="label">Novedades</label><textarea value={form.novedades||""} onChange={e=>set("novedades",e.target.value)} rows="2" placeholder="Obstáculos, riesgos o cambios identificados"/></div>
+          <div className="field"><label className="label">Evidencias</label><input value={form.evidencias||""} onChange={e=>set("evidencias",e.target.value)} placeholder="Documentos, enlaces, archivos..."/></div>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" onClick={save} disabled={saving}>{saving?"Guardando…":"Guardar avance"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Vista Detalle de Subproceso ──
+function DetalleSubproceso({ subproceso, anio, token, onBack }) {
+  const [tab, setTab] = useState("resumen");
+  const [objetivos, setObjetivos] = useState([]);
+  const [estrategias, setEstrategias] = useState([]);
+  const [indicadores, setIndicadores] = useState([]);
+  const [iniciativas, setIniciativas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formObj, setFormObj] = useState(null);
+  const [formEst, setFormEst] = useState(null);
+  const [formInd, setFormInd] = useState(null);
+  const [formIni, setFormIni] = useState(null);
+  const [formAvance, setFormAvance] = useState(null);
+  const [objSeleccionado, setObjSeleccionado] = useState(null);
+  const [historialAvances, setHistorialAvances] = useState([]);
+  const [showHistorial, setShowHistorial] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [obj,ini] = await Promise.all([
+        api(`objetivos_estrategicos?anio=eq.${anio}&subproceso_id=eq.${subproceso.id}&select=*&order=created_at`,{},token),
+        api(`iniciativas_gh?anio=eq.${anio}&subproceso_id=eq.${subproceso.id}&select=*&order=fecha_fin.asc`,{},token),
+      ]);
+      const objIds=(obj||[]).map(o=>o.id);
+      let est=[], ind=[];
+      if(objIds.length>0){
+        [est,ind]=await Promise.all([
+          api(`estrategias_gh?objetivo_id=in.(${objIds.join(",")})&select=*&order=created_at`,{},token),
+          api(`indicadores_estrategicos?objetivo_id=in.(${objIds.join(",")})&select=*&order=created_at`,{},token),
+        ]);
+      }
+      setObjetivos(obj||[]);
+      setEstrategias(est||[]);
+      setIndicadores(ind||[]);
+      setIniciativas(ini||[]);
+    } catch(e){console.error(e);}
+    finally{setLoading(false);}
+  };
+
+  useEffect(()=>{load();},[subproceso.id,anio]);
+
+  const loadAvances = async (iniId) => {
+    try {
+      const avs=await api(`avances_iniciativa?iniciativa_id=eq.${iniId}&order=fecha.desc`,{},token);
+      setHistorialAvances(avs||[]);
+      setShowHistorial(iniId);
+    } catch(e){console.error(e);}
+  };
+
+  const deleteObj=async(id)=>{if(!confirm("¿Eliminar este objetivo y todo su contenido?"))return;await api(`objetivos_estrategicos?id=eq.${id}`,{method:"DELETE"},token);load();};
+  const deleteEst=async(id)=>{if(!confirm("¿Eliminar esta estrategia?"))return;await api(`estrategias_gh?id=eq.${id}`,{method:"DELETE"},token);load();};
+  const deleteInd=async(id)=>{if(!confirm("¿Eliminar este indicador?"))return;await api(`indicadores_estrategicos?id=eq.${id}`,{method:"DELETE"},token);load();};
+  const deleteIni=async(id)=>{if(!confirm("¿Eliminar esta iniciativa?"))return;await api(`iniciativas_gh?id=eq.${id}`,{method:"DELETE"},token);load();};
+
+  const avanceSubproceso=objetivos.length>0?Math.round(objetivos.reduce((s,o)=>s+(o.porcentaje_avance||0),0)/objetivos.length):0;
+  const tabs=["resumen","objetivos","iniciativas","indicadores"];
+  const tabLabel={resumen:"Resumen estratégico",objetivos:"Objetivos y estrategias",iniciativas:"Iniciativas",indicadores:"KPI e indicadores"};
+
+  return (
+    <div className="page">
+      {formObj&&<FormObjetivo subprocesoId={subproceso.id} anio={anio} objetivo={formObj===true?null:formObj} token={token} onSave={()=>{setFormObj(null);load();}} onClose={()=>setFormObj(null)}/>}
+      {formEst&&<FormEstrategia objetivoId={objSeleccionado?.id} estrategia={formEst===true?null:formEst} token={token} onSave={()=>{setFormEst(null);load();}} onClose={()=>setFormEst(null)}/>}
+      {formInd&&<FormIndicador objetivoId={objSeleccionado?.id} indicador={formInd===true?null:formInd} token={token} onSave={()=>{setFormInd(null);load();}} onClose={()=>setFormInd(null)}/>}
+      {formIni&&<FormIniciativa subprocesoId={subproceso.id} anio={anio} objetivoId={objSeleccionado?.id} iniciativa={formIni===true?null:formIni} token={token} onSave={()=>{setFormIni(null);load();}} onClose={()=>setFormIni(null)}/>}
+      {formAvance&&<FormAvance iniciativaId={formAvance} token={token} onSave={()=>{setFormAvance(null);load();}} onClose={()=>setFormAvance(null)}/>}
+
+      {showHistorial&&(
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 style={{fontFamily:"Fraunces,serif",fontSize:"16px"}}>Historial de avances</h3>
+              <button type="button" onClick={()=>setShowHistorial(null)} style={{background:"none",border:"none",fontSize:"20px",cursor:"pointer",color:"#9e9890"}}>×</button>
+            </div>
+            <div className="modal-body">
+              {historialAvances.length===0
+                ?<div style={{textAlign:"center",color:"#9e9890",padding:"20px"}}>Sin avances registrados</div>
+                :historialAvances.map(a=>(
+                  <div key={a.id} style={{borderBottom:"1px solid #f4f1ec",paddingBottom:"12px",marginBottom:"12px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
+                      <span style={{fontSize:"12px",fontWeight:"600",color:"#1a1714"}}>{a.fecha}</span>
+                      <span style={{fontSize:"12px",color:"#c9a84c",fontWeight:"600"}}>{a.porcentaje_avance}%</span>
+                    </div>
+                    <div style={{fontSize:"13px",color:"#1a1714",marginBottom:"4px"}}>{a.descripcion_avance}</div>
+                    {a.novedades&&<div style={{fontSize:"12px",color:"#5a534c"}}>⚠ {a.novedades}</div>}
+                    {a.registrado_por&&<div style={{fontSize:"11px",color:"#9e9890",marginTop:"3px"}}>Por: {a.registrado_por}</div>}
+                  </div>
+                ))
+              }
+            </div>
+            <div className="modal-footer"><button type="button" className="btn-ghost" onClick={()=>setShowHistorial(null)}>Cerrar</button></div>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"20px"}}>
+        <button type="button" onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",color:"#9e9890",fontSize:"20px",padding:"0"}}>←</button>
+        <div style={{width:"40px",height:"40px",borderRadius:"10px",background:`${subproceso.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"20px",flexShrink:0}}>{subproceso.icono}</div>
+        <div>
+          <h2 style={{fontFamily:"Fraunces,serif",fontSize:"20px",fontWeight:"700",color:"#1a1714"}}>{subproceso.nombre}</h2>
+          <p style={{fontSize:"12px",color:"#9e9890",marginTop:"2px"}}>Plan estratégico · {anio}</p>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:"4px",marginBottom:"20px",borderBottom:"1px solid #ece6dd"}}>
+        {tabs.map(t=>(
+          <button key={t} type="button" onClick={()=>setTab(t)}
+            style={{padding:"8px 16px",background:"none",border:"none",cursor:"pointer",fontSize:"13px",fontWeight:"500",
+              color:tab===t?"#1a1714":"#9e9890",borderBottom:tab===t?`2px solid ${subproceso.color}`:"2px solid transparent",marginBottom:"-1px"}}>
+            {tabLabel[t]}
+          </button>
+        ))}
+      </div>
+
+      {loading&&<div style={{textAlign:"center",padding:"40px",color:"#9e9890"}}>Cargando…</div>}
+
+      {!loading&&tab==="resumen"&&(
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"20px"}}>
+            {[
+              {label:"Objetivos",val:objetivos.length,color:subproceso.color},
+              {label:"Estrategias",val:estrategias.length,color:"#6366f1"},
+              {label:"Iniciativas",val:iniciativas.length,color:"#c9a84c"},
+              {label:"Indicadores",val:indicadores.length,color:"#10b981"},
+            ].map(s=>(
+              <div key={s.label} className="stat-card">
+                <div className="stat-num" style={{color:s.color}}>{s.val}</div>
+                <div className="stat-label">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="card" style={{padding:"20px",marginBottom:"16px"}}>
+            <div style={{fontWeight:"600",fontSize:"13px",marginBottom:"12px"}}>Avance general del subproceso · {anio}</div>
+            <BarraAvance pct={avanceSubproceso} color={subproceso.color}/>
+          </div>
+          {objetivos.length>0&&(
+            <div className="card table-wrap">
+              <div style={{padding:"14px 20px",fontWeight:"600",fontSize:"13px",borderBottom:"1px solid #ece6dd"}}>Objetivos estratégicos</div>
+              <table><thead><tr><th>Objetivo</th><th>Responsable</th><th>Estado</th><th>Avance</th></tr></thead>
+              <tbody>{objetivos.map(o=>(
+                <tr key={o.id}>
+                  <td style={{fontWeight:"500"}}>{o.nombre}</td>
+                  <td style={{fontSize:"12px"}}>{o.responsable||"—"}</td>
+                  <td><BadgeEstado estado={o.estado}/></td>
+                  <td style={{minWidth:"120px"}}><BarraAvance pct={o.porcentaje_avance} color={subproceso.color}/></td>
+                </tr>
+              ))}</tbody></table>
+            </div>
+          )}
+          {objetivos.length===0&&<div className="empty-state">Sin objetivos para {anio}. Ve a la pestaña "Objetivos y estrategias" para crear el primero.</div>}
+        </div>
+      )}
+
+      {!loading&&tab==="objetivos"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+            <span style={{fontSize:"13px",color:"#5a534c"}}>{objetivos.length} objetivo{objetivos.length!==1?"s":""} · {anio}</span>
+            <button type="button" className="btn-primary" onClick={()=>setFormObj(true)}>+ Nuevo objetivo</button>
+          </div>
+          {objetivos.length===0
+            ?<div className="empty-state">No hay objetivos para {anio}. Crea el primero.</div>
+            :objetivos.map(obj=>{
+              const estObj=estrategias.filter(e=>e.objetivo_id===obj.id);
+              const indObj=indicadores.filter(i=>i.objetivo_id===obj.id);
+              return(
+                <div key={obj.id} className="card" style={{marginBottom:"16px",borderLeft:`3px solid ${subproceso.color}`}}>
+                  <div style={{padding:"16px 20px",borderBottom:"1px solid #f4f1ec"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:"600",fontSize:"14px",color:"#1a1714",marginBottom:"3px"}}>{obj.nombre}</div>
+                        {obj.descripcion&&<div style={{fontSize:"12px",color:"#5a534c",marginBottom:"4px"}}>{obj.descripcion}</div>}
+                        {obj.resultado_esperado&&<div style={{fontSize:"12px",color:"#9e9890"}}>🎯 {obj.resultado_esperado}</div>}
+                      </div>
+                      <div style={{display:"flex",gap:"6px",alignItems:"center",marginLeft:"10px",flexShrink:0}}>
+                        <BadgeEstado estado={obj.estado}/>
+                        <button type="button" className="btn-ghost" style={{padding:"4px 10px",fontSize:"12px"}} onClick={()=>setFormObj(obj)}>Editar</button>
+                        <button type="button" style={{background:"none",border:"none",cursor:"pointer",color:"#dc2626",fontSize:"12px",padding:"4px 8px"}} onClick={()=>deleteObj(obj.id)}>✕</button>
+                      </div>
+                    </div>
+                    <BarraAvance pct={obj.porcentaje_avance} color={subproceso.color}/>
+                    <div style={{display:"flex",gap:"16px",marginTop:"8px",fontSize:"11px",color:"#9e9890"}}>
+                      {obj.responsable&&<span>👤 {obj.responsable}</span>}
+                      {obj.fecha_inicio&&<span>📅 {obj.fecha_inicio}{obj.fecha_fin?` → ${obj.fecha_fin}`:""}</span>}
+                    </div>
+                  </div>
+                  <div style={{padding:"12px 20px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
+                      <span style={{fontSize:"11px",fontWeight:"600",color:"#9e9890",textTransform:"uppercase",letterSpacing:"0.05em"}}>Estrategias ({estObj.length})</span>
+                      <div style={{display:"flex",gap:"6px"}}>
+                        <button type="button" style={{fontSize:"11px",color:"#6366f1",background:"none",border:"1px solid #6366f133",borderRadius:"6px",padding:"3px 10px",cursor:"pointer"}} onClick={()=>{setObjSeleccionado(obj);setFormEst(true);}}>+ Estrategia</button>
+                        <button type="button" style={{fontSize:"11px",color:"#10b981",background:"none",border:"1px solid #10b98133",borderRadius:"6px",padding:"3px 10px",cursor:"pointer"}} onClick={()=>{setObjSeleccionado(obj);setFormInd(true);}}>+ KPI</button>
+                        <button type="button" style={{fontSize:"11px",color:"#c9a84c",background:"none",border:"1px solid #c9a84c33",borderRadius:"6px",padding:"3px 10px",cursor:"pointer"}} onClick={()=>{setObjSeleccionado(obj);setFormIni(true);}}>+ Iniciativa</button>
+                      </div>
+                    </div>
+                    {estObj.map(est=>(
+                      <div key={est.id} style={{background:"#f9f8f6",borderRadius:"8px",padding:"10px 14px",marginBottom:"6px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontSize:"13px",fontWeight:"500",color:"#1a1714"}}>{est.nombre}</div>
+                          {est.descripcion&&<div style={{fontSize:"11px",color:"#9e9890",marginTop:"2px"}}>{est.descripcion}</div>}
+                          {est.responsable&&<div style={{fontSize:"11px",color:"#5a534c",marginTop:"2px"}}>👤 {est.responsable}</div>}
+                        </div>
+                        <div style={{display:"flex",gap:"6px",alignItems:"center",flexShrink:0,marginLeft:"10px"}}>
+                          <BadgeEstado estado={est.estado}/>
+                          <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#9e9890"}} onClick={()=>{setObjSeleccionado(obj);setFormEst(est);}}>✎</button>
+                          <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#dc2626"}} onClick={()=>deleteEst(est.id)}>✕</button>
+                        </div>
+                      </div>
+                    ))}
+                    {estObj.length===0&&<div style={{fontSize:"12px",color:"#9e9890",fontStyle:"italic"}}>Sin estrategias definidas</div>}
+                    {indObj.length>0&&(
+                      <div style={{marginTop:"10px"}}>
+                        <div style={{fontSize:"11px",fontWeight:"600",color:"#9e9890",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:"6px"}}>Indicadores ({indObj.length})</div>
+                        {indObj.map(ind=>(
+                          <div key={ind.id} style={{background:"#f0fdf4",borderRadius:"8px",padding:"10px 14px",marginBottom:"6px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <div>
+                              <div style={{fontSize:"13px",fontWeight:"500",color:"#1a1714"}}>{ind.nombre}</div>
+                              <div style={{fontSize:"11px",color:"#5a534c",marginTop:"2px"}}>
+                                Actual: <strong>{ind.resultado_actual!=null?ind.resultado_actual:"—"}</strong>{ind.unidad_medida?` ${ind.unidad_medida}`:""} / Meta: <strong>{ind.meta!=null?ind.meta:"—"}</strong>{ind.unidad_medida?` ${ind.unidad_medida}`:""}
+                              </div>
+                            </div>
+                            <div style={{display:"flex",gap:"8px",alignItems:"center",flexShrink:0,marginLeft:"10px"}}>
+                              <SemaforoKPI actual={ind.resultado_actual} meta={ind.meta} tipo={ind.tipo_meta}/>
+                              <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#9e9890"}} onClick={()=>{setObjSeleccionado(obj);setFormInd(ind);}}>✎</button>
+                              <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#dc2626"}} onClick={()=>deleteInd(ind.id)}>✕</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          }
+        </div>
+      )}
+
+      {!loading&&tab==="iniciativas"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+            <span style={{fontSize:"13px",color:"#5a534c"}}>{iniciativas.length} iniciativa{iniciativas.length!==1?"s":""} · {anio}</span>
+            <button type="button" className="btn-primary" onClick={()=>setFormIni(true)}>+ Nueva iniciativa</button>
+          </div>
+          {iniciativas.length===0
+            ?<div className="empty-state">No hay iniciativas para {anio}.</div>
+            :<div className="card table-wrap">
+              <table><thead><tr>
+                <th>Iniciativa</th><th>Responsable</th><th>Trimestre</th>
+                <th>Fecha fin</th><th>Prioridad</th><th>Estado</th><th>Avance</th><th></th>
+              </tr></thead><tbody>
+                {iniciativas.map(ini=>(
+                  <tr key={ini.id}>
+                    <td style={{fontWeight:"500",maxWidth:"200px"}}>
+                      <div>{ini.nombre}</div>
+                      {ini.descripcion&&<div style={{fontSize:"11px",color:"#9e9890",marginTop:"2px"}}>{ini.descripcion.slice(0,60)}{ini.descripcion.length>60?"…":""}</div>}
+                    </td>
+                    <td style={{fontSize:"12px"}}>{ini.responsable_principal||"—"}</td>
+                    <td><span style={{fontSize:"11px",fontWeight:"600",color:"#6366f1"}}>{ini.trimestre||"—"}</span></td>
+                    <td style={{fontSize:"12px"}}>{ini.fecha_fin||"—"}</td>
+                    <td><BadgePrioridad p={ini.prioridad}/></td>
+                    <td><BadgeEstado estado={ini.estado}/></td>
+                    <td style={{minWidth:"110px"}}><BarraAvance pct={ini.porcentaje_avance} color={subproceso.color}/></td>
+                    <td>
+                      <div style={{display:"flex",gap:"4px"}}>
+                        <button type="button" style={{fontSize:"11px",color:"#10b981",background:"none",border:"1px solid #10b98133",borderRadius:"6px",padding:"3px 8px",cursor:"pointer",whiteSpace:"nowrap"}} onClick={()=>setFormAvance(ini.id)}>+ Avance</button>
+                        <button type="button" style={{fontSize:"11px",color:"#6366f1",background:"none",border:"1px solid #6366f133",borderRadius:"6px",padding:"3px 8px",cursor:"pointer"}} onClick={()=>loadAvances(ini.id)}>Historial</button>
+                        <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#9e9890"}} onClick={()=>setFormIni(ini)}>✎</button>
+                        <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#dc2626"}} onClick={()=>deleteIni(ini.id)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+          }
+        </div>
+      )}
+
+      {!loading&&tab==="indicadores"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+            <span style={{fontSize:"13px",color:"#5a534c"}}>{indicadores.length} indicador{indicadores.length!==1?"es":""} · {anio}</span>
+            {objetivos.length>0&&<button type="button" className="btn-primary" onClick={()=>{setObjSeleccionado(objetivos[0]);setFormInd(true);}}>+ Nuevo KPI</button>}
+          </div>
+          {indicadores.length===0
+            ?<div className="empty-state">No hay indicadores. Agrega uno desde los objetivos.</div>
+            :<div className="card table-wrap">
+              <table><thead><tr>
+                <th>KPI</th><th>Unidad</th><th>Línea base</th><th>Actual</th><th>Meta</th><th>Estado</th><th>Frecuencia</th><th>Responsable</th><th></th>
+              </tr></thead><tbody>
+                {indicadores.map(ind=>(
+                  <tr key={ind.id}>
+                    <td style={{fontWeight:"500"}}>{ind.nombre}</td>
+                    <td style={{fontSize:"12px"}}>{ind.unidad_medida||"—"}</td>
+                    <td style={{fontSize:"12px"}}>{ind.linea_base!=null?ind.linea_base:"—"}</td>
+                    <td style={{fontSize:"12px",fontWeight:"600"}}>{ind.resultado_actual!=null?ind.resultado_actual:"—"}</td>
+                    <td style={{fontSize:"12px"}}>{ind.meta!=null?ind.meta:"—"}</td>
+                    <td><SemaforoKPI actual={ind.resultado_actual} meta={ind.meta} tipo={ind.tipo_meta}/></td>
+                    <td style={{fontSize:"12px"}}>{ind.frecuencia||"—"}</td>
+                    <td style={{fontSize:"12px"}}>{ind.responsable||"—"}</td>
+                    <td style={{whiteSpace:"nowrap"}}>
+                      <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#9e9890",marginRight:"4px"}} onClick={()=>{const obj=objetivos.find(o=>o.id===ind.objetivo_id);setObjSeleccionado(obj);setFormInd(ind);}}>✎</button>
+                      <button type="button" style={{fontSize:"11px",background:"none",border:"none",cursor:"pointer",color:"#dc2626"}} onClick={()=>deleteInd(ind.id)}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MÓDULO PRINCIPAL PLAN ESTRATÉGICO ──
+function ModuloPlanEstrategico({ token, isAdmin, onBack, onLogout }) {
+  const [page, setPage] = useState("dashboard");
+  const [subprocesos, setSubprocesos] = useState([]);
+  const [subprocesoActivo, setSubprocesoActivo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [anio, setAnio] = useState(()=>{
+    const g=localStorage.getItem("gh_pe_anio");
+    return g ? parseInt(g,10) : ANIO_ACTUAL;
+  });
+  const [aniosUsados, setAniosUsados] = useState([]);
+  const [showNuevoAnio, setShowNuevoAnio] = useState(false);
+
+  // Carga subprocesos (una vez) y años disponibles
+  useEffect(()=>{
+    const init = async ()=>{
+      setLoading(true);
+      try {
+        const [sps, objSample] = await Promise.all([
+          api("subprocesos_gh?select=*&order=orden&activo=eq.true",{},token),
+          api("objetivos_estrategicos?select=anio&order=anio.desc",{},token),
+        ]);
+        setSubprocesos(sps||[]);
+        const anos=aniosDisponibles(objSample||[]);
+        if(!anos.includes(anio)&&anos.length>0) setAnioGuardado(anos[0]);
+        setAniosUsados(anos.length>0?anos:[anio]);
+      } catch(e){console.error(e);}
+      finally{setLoading(false);}
+    };
+    init();
+  },[token]);
+
+  const setAnioGuardado = (a) => {
+    setAnio(a);
+    localStorage.setItem("gh_pe_anio", String(a));
+  };
+
+  const cambiarAnio = (a) => {
+    setAnioGuardado(a);
+    setPage("dashboard");
+    setSubprocesoActivo(null);
+  };
+
+  const crearNuevoAnio = async (nuevoAnio, copiarDeAnio) => {
+    if (copiarDeAnio) {
+      // Copia objetivos e iniciativas del año origen al nuevo año
+      const [objOrigen, iniOrigen] = await Promise.all([
+        api(`objetivos_estrategicos?anio=eq.${copiarDeAnio}&select=*`,{},token),
+        api(`iniciativas_gh?anio=eq.${copiarDeAnio}&select=*`,{},token),
+      ]);
+      // Inserta objetivos con el nuevo año (sin IDs originales)
+      for(const o of (objOrigen||[])) {
+        const {id, created_at, updated_at, ...rest} = o;
+        await api("objetivos_estrategicos",{method:"POST",body:JSON.stringify({...rest,anio:nuevoAnio,estado:"Pendiente",porcentaje_avance:0})},token);
+      }
+      // Inserta iniciativas con el nuevo año
+      for(const i of (iniOrigen||[])) {
+        const {id, created_at, updated_at, estrategia_id, objetivo_id, ...rest} = i;
+        await api("iniciativas_gh",{method:"POST",body:JSON.stringify({...rest,anio:nuevoAnio,estado:"Pendiente",porcentaje_avance:0})},token);
+      }
+    }
+    setAniosUsados(prev=>[...new Set([...prev,nuevoAnio])].sort((a,b)=>b-a));
+    setShowNuevoAnio(false);
+    cambiarAnio(nuevoAnio);
+  };
+
+  const selectSubproceso = (sp) => {
+    setSubprocesoActivo(sp);
+    setPage("detalle");
+  };
+
+  return (
+    <div className="app-layout">
+      {showNuevoAnio&&<ModalNuevoAnio aniosExistentes={aniosUsados} onCrear={crearNuevoAnio} onClose={()=>setShowNuevoAnio(false)}/>}
+      <div className="sidebar">
+        <div style={{padding:"20px 16px 12px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"16px"}}>
+            <div style={{width:"34px",height:"34px",background:"#6366f1",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <div>
+              <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"16px",lineHeight:"1.1",color:"#1a1714"}}>Plan Estratégico</div>
+              <div style={{fontSize:"9px",color:"#6366f1",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:"2px",fontWeight:"600"}}>GH · {anio}</div>
+            </div>
+          </div>
+          {/* Selector de año */}
+          <div style={{background:"#f9f8f6",borderRadius:"10px",padding:"10px 12px",marginBottom:"4px"}}>
+            <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"6px"}}>Año de planeación</div>
+            <select value={anio} onChange={e=>cambiarAnio(+e.target.value)}
+              style={{width:"100%",border:"1px solid #ece6dd",borderRadius:"8px",padding:"5px 8px",fontSize:"13px",fontWeight:"700",color:"#1a1714",background:"#fff",cursor:"pointer"}}>
+              {aniosUsados.map(a=><option key={a} value={a}>{a}</option>)}
+              {!aniosUsados.includes(anio)&&<option value={anio}>{anio}</option>}
+            </select>
+            <button type="button" onClick={()=>setShowNuevoAnio(true)}
+              style={{width:"100%",marginTop:"6px",fontSize:"11px",color:"#6366f1",background:"#eff0ff",border:"1px solid #a5b4fc",borderRadius:"8px",padding:"5px 0",cursor:"pointer",fontWeight:"500"}}>
+              + Nuevo año
+            </button>
+          </div>
+        </div>
+        <nav style={{flex:1,padding:"0 8px"}}>
+          <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em",paddingLeft:"8px"}}>General</div>
+          <button type="button" className={`nav-item${page==="dashboard"?" active":""}`} onClick={()=>{setPage("dashboard");setSubprocesoActivo(null);}}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard {anio}
+          </button>
+          <button type="button" className={`nav-item${page==="transversal"?" active":""}`} onClick={()=>{setPage("transversal");setSubprocesoActivo(null);}}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M3 8h18M3 12h18M3 16h18M3 20h18"/></svg>
+            Vista transversal
+          </button>
+          {subprocesos.length>0&&(
+            <>
+              <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",margin:"12px 0 6px",textTransform:"uppercase",letterSpacing:"0.08em",paddingLeft:"8px"}}>Subprocesos</div>
+              {subprocesos.map(sp=>(
+                <button key={sp.id} type="button"
+                  className={`nav-item${subprocesoActivo?.id===sp.id&&page==="detalle"?" active":""}`}
+                  onClick={()=>selectSubproceso(sp)}>
+                  <span style={{fontSize:"14px"}}>{sp.icono}</span>
+                  <span style={{fontSize:"12px",lineHeight:"1.3"}}>{sp.nombre.split(" ").slice(0,2).join(" ")}</span>
+                </button>
+              ))}
+            </>
+          )}
+        </nav>
+        <div style={{padding:"12px 8px",borderTop:"1px solid #e8e0d0"}}>
+          <button type="button" onClick={onBack} className="nav-item" style={{width:"100%"}}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M3 12l6-6M3 12l6 6"/></svg>
+            Módulos
+          </button>
+          <button type="button" onClick={onLogout} className="nav-item" style={{width:"100%",color:"var(--danger)"}}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+      <div className="main">
+        {loading
+          ?<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",color:"var(--text3)"}}>Cargando…</div>
+          :page==="dashboard"
+            ?<DashboardPlanEstrategico token={token} subprocesos={subprocesos} anio={anio} onSelectSubproceso={selectSubproceso}/>
+            :page==="transversal"
+              ?<VistaTransversal token={token} subprocesos={subprocesos} anio={anio}/>
+              :page==="detalle"&&subprocesoActivo
+                ?<DetalleSubproceso subproceso={subprocesoActivo} anio={anio} token={token} onBack={()=>{setPage("dashboard");setSubprocesoActivo(null);}}/>
+                :null
+        }
+      </div>
+    </div>
+  );
+}
 // ── APP ──
 function App() {
   const [token, setToken] = useState(()=>localStorage.getItem("gh_token")||"");
@@ -3064,7 +4338,7 @@ function App() {
   const [userId, setUserId] = useState(()=>localStorage.getItem("gh_uid")||"");
   const [modulosPermitidos, setModulosPermitidos] = useState(()=>{
     const m = localStorage.getItem("gh_modulos");
-    return m ? JSON.parse(m) : ["formacion","biblioteca","seleccion"];
+    return m ? JSON.parse(m) : ["formacion","biblioteca","seleccion","plan_estrategico"];
   });
   const [moduloActivo, setModuloActivo] = useState("");
   const [page, setPage] = useState("dashboard");
@@ -3083,9 +4357,9 @@ function App() {
     setUserId(user.id);
     const perfil = await fetchPerfil(user.id, tok);
     localStorage.setItem("gh_rol", perfil.rol);
-    localStorage.setItem("gh_modulos", JSON.stringify(perfil.modulos || ["formacion","biblioteca","seleccion"]));
+    localStorage.setItem("gh_modulos", JSON.stringify(perfil.modulos || ["formacion","biblioteca","seleccion","plan_estrategico"]));
     setRol(perfil.rol);
-    setModulosPermitidos(perfil.modulos || ["formacion","biblioteca","seleccion"]);
+    setModulosPermitidos(perfil.modulos || ["formacion","biblioteca","seleccion","plan_estrategico"]);
   };
   const logout = () => {
     localStorage.removeItem("gh_token");
@@ -3117,6 +4391,7 @@ function App() {
   if(!moduloActivo) return <ModulosHome isAdmin={isAdmin} modulosPermitidos={modulosPermitidos} onSelectModulo={setModuloActivo} onLogout={logout} userName={isAdmin?"Mariale":""}/>;
   if(moduloActivo === "biblioteca") return <ModuloBiblioteca token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
   if(moduloActivo === "seleccion") return <ModuloSeleccion token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
+  if(moduloActivo === "plan_estrategico") return <ModuloPlanEstrategico token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
 
   const empresasFormacion = empresas.filter(e=>e.codigo !== 'ALT');
   const filteredCaps = filtroEmpresa ? caps.filter(c=>c.empresa_id===filtroEmpresa) : caps.filter(c=>empresasFormacion.some(e=>e.id===c.empresa_id));
