@@ -4197,18 +4197,30 @@ function ModuloPlanEstrategico({ token, isAdmin, onBack, onLogout }) {
 
   // Carga subprocesos (una vez) y años disponibles
   useEffect(()=>{
+    const SUBPROCESOS_DEFAULT = [
+      {id:"sp-1",nombre:"Atracción y Selección",descripcion:"Reclutamiento, selección e ingreso de talento",icono:"🎯",color:"#6366f1",orden:1,activo:true},
+      {id:"sp-2",nombre:"Desarrollo y Capacitación",descripcion:"Formación, planes de desarrollo y conocimiento",icono:"📚",color:"#c9a84c",orden:2,activo:true},
+      {id:"sp-3",nombre:"Compensaciones y Beneficios",descripcion:"Nómina, salarios, beneficios y compensación",icono:"💰",color:"#10b981",orden:3,activo:true},
+      {id:"sp-4",nombre:"Clima y Cultura Organizacional",descripcion:"Ambiente laboral, cultura y engagement",icono:"🌱",color:"#f59e0b",orden:4,activo:true},
+      {id:"sp-5",nombre:"People Analytics",descripcion:"Analítica de datos de Gestión Humana",icono:"📊",color:"#8b5cf6",orden:5,activo:true},
+      {id:"sp-6",nombre:"Bienestar y Salud Laboral",descripcion:"Bienestar, SST y calidad de vida del personal",icono:"❤️",color:"#ef4444",orden:6,activo:true},
+    ];
     const init = async ()=>{
       setLoading(true);
       try {
         const [sps, objSample] = await Promise.all([
-          api("subprocesos_gh?select=*&order=orden&activo=eq.true",{},token),
+          api("subprocesos_gh?select=*&order=orden",{},token),
           api("objetivos_estrategicos?select=anio&order=anio.desc",{},token),
         ]);
-        setSubprocesos(sps||[]);
+        const subprocesosData = (sps && sps.length > 0) ? sps : SUBPROCESOS_DEFAULT;
+        setSubprocesos(subprocesosData);
         const anos=aniosDisponibles(objSample||[]);
         if(!anos.includes(anio)&&anos.length>0) setAnioGuardado(anos[0]);
         setAniosUsados(anos.length>0?anos:[anio]);
-      } catch(e){console.error(e);}
+      } catch(e){
+        console.error("Error cargando subprocesos:",e);
+        setSubprocesos(SUBPROCESOS_DEFAULT);
+      }
       finally{setLoading(false);}
     };
     init();
