@@ -2980,6 +2980,12 @@ function ModulosHome({ isAdmin, modulosPermitidos=[], onSelectModulo, onLogout, 
       icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#6366f1" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
     },
     {
+      id: "presupuesto", nombre: "Presupuesto", desc: "Control presupuestal y ejecución GH",
+      activo: true, acceso: isAdmin || modulosPermitidos.includes("presupuesto"),
+      accentColor: "#c9a84c", iconBg: "#fdf9f0", badgeBg: "#fdf9f0", badgeColor: "#a07c2e", badgeBorder: "#e8d08a",
+      icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#c9a84c" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    },
+    {
       id: "evaluacion", nombre: "Evaluación", desc: "Desempeño y seguimiento",
       activo: false, acceso: false, accentColor: "#ece6dd", iconBg: "#f4f1ec",
       badgeBg: "#f4f1ec", badgeColor: "#b8b0a6", badgeBorder: "#ece6dd",
@@ -4198,12 +4204,12 @@ function ModuloPlanEstrategico({ token, isAdmin, onBack, onLogout }) {
   // Carga subprocesos (una vez) y años disponibles
   useEffect(()=>{
     const SUBPROCESOS_DEFAULT = [
-      {id:"sp-1",nombre:"Atracción y Selección",descripcion:"Reclutamiento, selección e ingreso de talento",icono:"🎯",color:"#6366f1",orden:1,activo:true},
-      {id:"sp-2",nombre:"Desarrollo y Capacitación",descripcion:"Formación, planes de desarrollo y conocimiento",icono:"📚",color:"#c9a84c",orden:2,activo:true},
-      {id:"sp-3",nombre:"Compensaciones y Beneficios",descripcion:"Nómina, salarios, beneficios y compensación",icono:"💰",color:"#10b981",orden:3,activo:true},
-      {id:"sp-4",nombre:"Clima y Cultura Organizacional",descripcion:"Ambiente laboral, cultura y engagement",icono:"🌱",color:"#f59e0b",orden:4,activo:true},
-      {id:"sp-5",nombre:"People Analytics",descripcion:"Analítica de datos de Gestión Humana",icono:"📊",color:"#8b5cf6",orden:5,activo:true},
-      {id:"sp-6",nombre:"Bienestar y Salud Laboral",descripcion:"Bienestar, SST y calidad de vida del personal",icono:"❤️",color:"#ef4444",orden:6,activo:true},
+      {id:"99b9e4bc-4607-4f0f-96b0-a5d8550cb0ac",nombre:"Atracción y Selección",descripcion:"Reclutamiento, selección e ingreso de talento",icono:"🎯",color:"#6366f1",orden:1,activo:true},
+      {id:"707b2c6e-ecb2-445d-b94b-f897b1dd1de4",nombre:"Desarrollo y Capacitación",descripcion:"Formación, planes de desarrollo y conocimiento",icono:"📚",color:"#c9a84c",orden:2,activo:true},
+      {id:"d0401cb9-a8c6-4128-b5e0-db38b854f9ea",nombre:"Compensaciones y Beneficios",descripcion:"Nómina, salarios, beneficios y compensación",icono:"💰",color:"#10b981",orden:3,activo:true},
+      {id:"0cdc6d6d-7423-421a-a06d-e156d0a55a0c",nombre:"Clima y Cultura Organizacional",descripcion:"Ambiente laboral, cultura y engagement",icono:"🌱",color:"#f59e0b",orden:4,activo:true},
+      {id:"c01bbad6-bd01-4613-ae98-c1eb5b2be3dc",nombre:"People Analytics",descripcion:"Analítica de datos de Gestión Humana",icono:"📊",color:"#8b5cf6",orden:5,activo:true},
+      {id:"5010cba5-9ea1-4864-9f16-687c5d31fe77",nombre:"Bienestar y Salud Laboral",descripcion:"Bienestar, SST y calidad de vida del personal",icono:"❤️",color:"#ef4444",orden:6,activo:true},
     ];
     const init = async ()=>{
       setLoading(true);
@@ -4343,6 +4349,863 @@ function ModuloPlanEstrategico({ token, isAdmin, onBack, onLogout }) {
     </div>
   );
 }
+
+// ── MÓDULO PRESUPUESTO GH ──────────────────────────────────────────────────
+// Gestión presupuestal: dashboard, administración y seguimiento de ejecución
+// Supabase tables: presupuesto_conceptos, presupuesto_aprobado, presupuesto_ejecucion
+// ──────────────────────────────────────────────────────────────────────────
+
+function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
+  const [vista, setVista] = React.useState("dashboard");
+  const [conceptos, setConceptos] = React.useState([]);
+  const [aprobado, setAprobado] = React.useState([]);
+  const [ejecucion, setEjecucion] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [anioActivo, setAnioActivo] = React.useState(2026);
+  const [filtroMes, setFiltroMes] = React.useState(0);       // 0 = todos
+  const [filtroTipo, setFiltroTipo] = React.useState("");
+  const [filtroConcepto, setFiltroConcepto] = React.useState("");
+  const [filtroEstado, setFiltroEstado] = React.useState("");
+  const [filtroEmpresa, setFiltroEmpresa] = React.useState("");
+  const [modalNuevo, setModalNuevo] = React.useState(null); // "movimiento"|"concepto"
+  const [editItem, setEditItem] = React.useState(null);
+  const [saving, setSaving] = React.useState(false);
+  const [alertas, setAlertas] = React.useState([]);
+
+  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const EMPRESAS = ["Química Orión","MaxPure","Orión L","FixNova","General"];
+  const TIPOS = ["Bienestar","Gastos","SST","Software","Gestión del conocimiento","Nómina","Gastos GH"];
+  const ESTADOS = ["ejecutado","comprometido","anulado"];
+
+  // ── CARGA DE DATOS ─────────────────────────────────────────────────────
+  async function loadAll() {
+    setLoading(true);
+    try {
+      const [cRes, aRes, eRes] = await Promise.all([
+        api(`/rest/v1/presupuesto_conceptos?order=orden.asc`, token),
+        api(`/rest/v1/presupuesto_aprobado?anio=eq.${anioActivo}&order=mes.asc`, token),
+        api(`/rest/v1/presupuesto_ejecucion?anio=eq.${anioActivo}&order=fecha.desc`, token),
+      ]);
+      setConceptos(cRes.ok ? await cRes.json() : []);
+      setAprobado(aRes.ok ? await aRes.json() : []);
+      const ejData = eRes.ok ? await eRes.json() : [];
+      setEjecucion(ejData);
+      calcularAlertas(ejData);
+    } catch(e) { console.error(e); }
+    finally { setLoading(false); }
+  }
+
+  React.useEffect(() => { loadAll(); }, [anioActivo]);
+
+  function calcularAlertas(ejData) {
+    // Se calculan después de que aprobado y conceptos también estén listos
+    // Se recalcula desde el estado en renderAlert
+  }
+
+  // ── CÁLCULOS CENTRALES ─────────────────────────────────────────────────
+  function totalAprobadoPorConcepto(cid, mes=0) {
+    return aprobado
+      .filter(a => a.concepto_id === cid && (mes === 0 || a.mes === mes))
+      .reduce((s,a) => s + Number(a.valor||0), 0);
+  }
+
+  function totalEjecutadoPorConcepto(cid, mes=0) {
+    return ejecucion
+      .filter(e => e.concepto_id === cid && (mes === 0 || e.mes === mes) && e.estado !== "anulado")
+      .reduce((s,e) => s + Number(e.valor||0), 0);
+  }
+
+  function totalComprometidoPorConcepto(cid, mes=0) {
+    return ejecucion
+      .filter(e => e.concepto_id === cid && (mes === 0 || e.mes === mes) && e.estado === "comprometido")
+      .reduce((s,e) => s + Number(e.valor_comprometido||e.valor||0), 0);
+  }
+
+  const totalAprobado = aprobado.filter(a => filtroMes === 0 || a.mes === filtroMes)
+    .reduce((s,a) => s + Number(a.valor||0), 0);
+
+  const totalEjecutado = ejecucion.filter(e => (filtroMes === 0 || e.mes === filtroMes) && e.estado !== "anulado")
+    .reduce((s,e) => s + Number(e.valor||0), 0);
+
+  const totalComprometido = ejecucion.filter(e => (filtroMes === 0 || e.mes === filtroMes) && e.estado === "comprometido")
+    .reduce((s,e) => s + Number(e.valor_comprometido||e.valor||0), 0);
+
+  const totalDisponible = totalAprobado - totalEjecutado - totalComprometido;
+  const pctEjecucion = totalAprobado > 0 ? (totalEjecutado / totalAprobado) * 100 : 0;
+
+  // ── SAVE MOVIMIENTO ────────────────────────────────────────────────────
+  async function saveMovimiento(form) {
+    setSaving(true);
+    try {
+      const payload = {
+        concepto_id: form.concepto_id,
+        anio: anioActivo,
+        mes: Number(form.mes),
+        fecha: form.fecha,
+        descripcion: form.descripcion,
+        valor: Number(form.valor||0),
+        valor_comprometido: Number(form.valor_comprometido||0),
+        proveedor: form.proveedor||null,
+        empresa: form.empresa||"Química Orión",
+        estado: form.estado||"ejecutado",
+        observaciones: form.observaciones||null,
+      };
+      let res;
+      if (form.id) {
+        res = await api(`/rest/v1/presupuesto_ejecucion?id=eq.${form.id}`, token, "PATCH", payload);
+      } else {
+        res = await api(`/rest/v1/presupuesto_ejecucion`, token, "POST", payload);
+      }
+      if (res.ok) { setModalNuevo(null); setEditItem(null); await loadAll(); }
+      else { const err = await res.json(); alert("Error: " + JSON.stringify(err)); }
+    } catch(e) { alert("Error al guardar: " + e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function deleteMovimiento(id) {
+    if (!confirm("¿Eliminar este movimiento?")) return;
+    const res = await api(`/rest/v1/presupuesto_ejecucion?id=eq.${id}`, token, "DELETE");
+    if (res.ok) loadAll();
+  }
+
+  async function anularMovimiento(id) {
+    if (!confirm("¿Anular este movimiento? Quedará registrado pero no sumará a la ejecución.")) return;
+    const res = await api(`/rest/v1/presupuesto_ejecucion?id=eq.${id}`, token, "PATCH", {estado:"anulado"});
+    if (res.ok) loadAll();
+  }
+
+  async function saveConcepto(form) {
+    setSaving(true);
+    try {
+      const payload = {
+        nombre: form.nombre,
+        tipo: form.tipo||"Gastos",
+        observaciones: form.observaciones||null,
+        orden: Number(form.orden||99),
+        activo: true,
+      };
+      let res;
+      if (form.id) {
+        res = await api(`/rest/v1/presupuesto_conceptos?id=eq.${form.id}`, token, "PATCH", payload);
+      } else {
+        res = await api(`/rest/v1/presupuesto_conceptos`, token, "POST", payload);
+      }
+      if (res.ok) { setModalNuevo(null); setEditItem(null); await loadAll(); }
+      else { const err = await res.json(); alert("Error: " + JSON.stringify(err)); }
+    } catch(e) { alert("Error: " + e.message); }
+    finally { setSaving(false); }
+  }
+
+  // ── EXPORTAR CSV ───────────────────────────────────────────────────────
+  function exportarCSV() {
+    const rows = [["Fecha","Concepto","Tipo","Empresa","Descripción","Valor","Comprometido","Proveedor","Estado","Observaciones"]];
+    const ejFilt = ejecucion.filter(e => {
+      if (filtroMes && e.mes !== filtroMes) return false;
+      if (filtroEstado && e.estado !== filtroEstado) return false;
+      if (filtroEmpresa && e.empresa !== filtroEmpresa) return false;
+      if (filtroConcepto && e.concepto_id !== filtroConcepto) return false;
+      return true;
+    });
+    ejFilt.forEach(e => {
+      const c = conceptos.find(x=>x.id===e.concepto_id);
+      rows.push([e.fecha, c?.nombre||"", c?.tipo||"", e.empresa||"", e.descripcion, e.valor, e.valor_comprometido||0, e.proveedor||"", e.estado, e.observaciones||""]);
+    });
+    const csv = rows.map(r => r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `presupuesto_${anioActivo}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }
+
+  // ── HELPERS ─────────────────────────────────────────────────────────────
+  const fmt = v => {
+    const n = Number(v||0);
+    if (n >= 1e9) return "$" + (n/1e9).toFixed(1) + "B";
+    if (n >= 1e6) return "$" + (n/1e6).toFixed(1) + "M";
+    if (n >= 1e3) return "$" + (n/1e3).toFixed(0) + "K";
+    return "$" + n.toLocaleString("es-CO");
+  };
+  const fmtFull = v => "$" + Number(v||0).toLocaleString("es-CO", {minimumFractionDigits:0});
+
+  function colorTipo(tipo) {
+    const map = {
+      "Bienestar":"#10b981","Gastos":"#6366f1","SST":"#ef4444",
+      "Software":"#3b82f6","Gestión del conocimiento":"#8b5cf6",
+      "Nómina":"#f59e0b","Gastos GH":"#ec4899"
+    };
+    return map[tipo] || "#c9a84c";
+  }
+
+  // ── FILTROS APLICADOS ───────────────────────────────────────────────────
+  const conceptosFiltrados = conceptos.filter(c => {
+    if (filtroTipo && c.tipo !== filtroTipo) return false;
+    return true;
+  });
+
+  const ejecucionFiltrada = ejecucion.filter(e => {
+    if (filtroMes && e.mes !== filtroMes) return false;
+    if (filtroEstado && e.estado !== filtroEstado) return false;
+    if (filtroEmpresa && e.empresa !== filtroEmpresa) return false;
+    if (filtroConcepto && e.concepto_id !== filtroConcepto) return false;
+    if (filtroTipo) {
+      const c = conceptos.find(x=>x.id===e.concepto_id);
+      if (!c || c.tipo !== filtroTipo) return false;
+    }
+    return true;
+  });
+
+  // ── ALERTAS ────────────────────────────────────────────────────────────
+  function getAlertas() {
+    const al = [];
+    conceptos.forEach(c => {
+      const pres = totalAprobadoPorConcepto(c.id);
+      const ejec = totalEjecutadoPorConcepto(c.id);
+      const comp = totalComprometidoPorConcepto(c.id);
+      if (pres > 0 && ejec > pres) al.push({tipo:"peligro", msg:`${c.nombre}: SOBREEJECUCIÓN $${(ejec-pres).toLocaleString("es-CO")} sobre el presupuesto`});
+      else if (pres > 0 && (ejec+comp)/pres > 0.9) al.push({tipo:"advertencia", msg:`${c.nombre}: Ejecución al ${Math.round((ejec+comp)/pres*100)}% del presupuesto`});
+    });
+    return al;
+  }
+
+  // ── DATOS MENSUAL PARA GRÁFICA ─────────────────────────────────────────
+  function getDatosMensuales() {
+    return MESES.map((m,i) => {
+      const mes = i+1;
+      const presM = aprobado.filter(a=>a.mes===mes).reduce((s,a)=>s+Number(a.valor||0),0);
+      const ejM = ejecucion.filter(e=>e.mes===mes&&e.estado!=="anulado").reduce((s,e)=>s+Number(e.valor||0),0);
+      return {mes:m, presupuesto:presM, ejecutado:ejM};
+    });
+  }
+
+  // ── ESTILOS ────────────────────────────────────────────────────────────
+  const S = {
+    wrap: {minHeight:"100vh",background:"var(--bg)",display:"flex"},
+    sidebar: {
+      width:"220px",flexShrink:0,background:"#ffffff",borderRight:"1px solid #e8e0d0",
+      display:"flex",flexDirection:"column",padding:"0",minHeight:"100vh",
+    },
+    main: {flex:1,overflow:"auto",padding:"32px 36px"},
+    navItem: {
+      display:"flex",alignItems:"center",gap:"8px",padding:"8px 12px",borderRadius:"8px",
+      cursor:"pointer",background:"none",border:"none",width:"100%",textAlign:"left",
+      fontSize:"13px",color:"var(--text2)",fontWeight:"500",transition:"all 0.15s",
+    },
+    navActive: {background:"#fdf9f0",color:"var(--accent)"},
+    card: {background:"#fff",borderRadius:"12px",border:"1px solid #e8e0d0",padding:"20px"},
+    statCard: {
+      background:"#fff",borderRadius:"12px",border:"1px solid #e8e0d0",
+      padding:"20px 24px",display:"flex",flexDirection:"column",gap:"4px",
+    },
+    badge: {
+      display:"inline-flex",alignItems:"center",padding:"2px 8px",borderRadius:"20px",
+      fontSize:"11px",fontWeight:"600",letterSpacing:"0.02em",
+    },
+    btn: {
+      padding:"8px 16px",borderRadius:"8px",border:"none",cursor:"pointer",
+      fontSize:"13px",fontWeight:"600",transition:"all 0.15s",
+    },
+    input: {
+      width:"100%",padding:"9px 12px",borderRadius:"8px",border:"1px solid #e0d8cc",
+      fontSize:"13px",background:"#fff",color:"var(--text1)",outline:"none",boxSizing:"border-box",
+    },
+    select: {
+      width:"100%",padding:"9px 12px",borderRadius:"8px",border:"1px solid #e0d8cc",
+      fontSize:"13px",background:"#fff",color:"var(--text1)",outline:"none",boxSizing:"border-box",
+    },
+    label: {fontSize:"11px",fontWeight:"600",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"4px",display:"block"},
+    th: {padding:"10px 14px",fontSize:"11px",fontWeight:"700",color:"#9e9890",textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"left",background:"#f9f8f6",borderBottom:"1px solid #e8e0d0"},
+    td: {padding:"12px 14px",fontSize:"13px",color:"var(--text1)",borderBottom:"1px solid #f0ebe0"},
+  };
+
+  // ── BARRA DE PROGRESO ─────────────────────────────────────────────────
+  function BarraProgreso({pct, color="#c9a84c", height=8}) {
+    const cl = Math.min(100, Math.max(0, pct));
+    const c = pct > 100 ? "#ef4444" : pct > 90 ? "#f59e0b" : color;
+    return (
+      <div style={{background:"#f0ebe0",borderRadius:"999px",height,overflow:"hidden",width:"100%"}}>
+        <div style={{width:`${cl}%`,height:"100%",background:c,borderRadius:"999px",transition:"width 0.5s"}}/>
+      </div>
+    );
+  }
+
+  // ── MINI GRÁFICA MENSUAL (SVG) ─────────────────────────────────────────
+  function GraficaMensual() {
+    const datos = getDatosMensuales();
+    const maxVal = Math.max(...datos.map(d=>Math.max(d.presupuesto,d.ejecutado)),1);
+    const W=580,H=180,padL=12,padB=24,padT=12,padR=12;
+    const gW=W-padL-padR, gH=H-padB-padT;
+    const barW = gW/12;
+
+    return (
+      <div style={{overflowX:"auto"}}>
+        <svg width={W} height={H} style={{display:"block",minWidth:"420px"}}>
+          {datos.map((d,i)=>{
+            const x = padL + i*barW;
+            const hP = (d.presupuesto/maxVal)*gH;
+            const hE = (d.ejecutado/maxVal)*gH;
+            const yP = padT + gH - hP;
+            const yE = padT + gH - hE;
+            return (
+              <g key={i}>
+                <rect x={x+2} y={yP} width={barW/2-3} height={hP} fill="#e8e0d0" rx="2"/>
+                <rect x={x+barW/2+1} y={yE} width={barW/2-3} height={hE}
+                  fill={d.ejecutado>d.presupuesto?"#ef4444":"#c9a84c"} rx="2"/>
+                <text x={x+barW/2} y={H-6} textAnchor="middle" fontSize="9" fill="#9e9890">{d.mes}</text>
+              </g>
+            );
+          })}
+          {/* Eje Y simple */}
+          <line x1={padL} y1={padT} x2={padL} y2={padT+gH} stroke="#e8e0d0" strokeWidth="1"/>
+          <line x1={padL} y1={padT+gH} x2={W-padR} y2={padT+gH} stroke="#e8e0d0" strokeWidth="1"/>
+        </svg>
+        <div style={{display:"flex",gap:"16px",marginTop:"8px",fontSize:"11px",color:"#9e9890",paddingLeft:"12px"}}>
+          <span style={{display:"flex",alignItems:"center",gap:"4px"}}><span style={{width:10,height:10,background:"#e8e0d0",borderRadius:"2px",display:"inline-block"}}/> Presupuesto</span>
+          <span style={{display:"flex",alignItems:"center",gap:"4px"}}><span style={{width:10,height:10,background:"#c9a84c",borderRadius:"2px",display:"inline-block"}}/> Ejecutado</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MODAL MOVIMIENTO ───────────────────────────────────────────────────
+  function ModalMovimiento({onClose, item}) {
+    const hoy = new Date().toISOString().split("T")[0];
+    const [form, setForm] = React.useState({
+      concepto_id: item?.concepto_id||"",
+      mes: item?.mes||new Date().getMonth()+1,
+      fecha: item?.fecha||hoy,
+      descripcion: item?.descripcion||"",
+      valor: item?.valor||"",
+      valor_comprometido: item?.valor_comprometido||"",
+      proveedor: item?.proveedor||"",
+      empresa: item?.empresa||"Química Orión",
+      estado: item?.estado||"ejecutado",
+      observaciones: item?.observaciones||"",
+      id: item?.id||null,
+    });
+    const up = k => v => setForm(f=>({...f,[k]:v}));
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
+        <div style={{background:"#fff",borderRadius:"16px",width:"560px",maxWidth:"95vw",maxHeight:"90vh",overflowY:"auto",padding:"28px 32px",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px"}}>
+            <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"20px",color:"#1a1714"}}>{item?"Editar movimiento":"Registrar movimiento"}</div>
+            <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:"20px",color:"#9e9890"}}>✕</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px"}}>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={S.label}>Concepto *</label>
+              <select style={S.select} value={form.concepto_id} onChange={e=>up("concepto_id")(e.target.value)}>
+                <option value="">Seleccionar...</option>
+                {conceptos.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={S.label}>Fecha *</label>
+              <input style={S.input} type="date" value={form.fecha} onChange={e=>{
+                const mes = Number(e.target.value.split("-")[1]);
+                setForm(f=>({...f,fecha:e.target.value,mes}));
+              }}/>
+            </div>
+            <div>
+              <label style={S.label}>Empresa</label>
+              <select style={S.select} value={form.empresa} onChange={e=>up("empresa")(e.target.value)}>
+                {EMPRESAS.map(e=><option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={S.label}>Descripción *</label>
+              <input style={S.input} type="text" value={form.descripcion} onChange={e=>up("descripcion")(e.target.value)} placeholder="Descripción del gasto..."/>
+            </div>
+            <div>
+              <label style={S.label}>Valor ejecutado ($)</label>
+              <input style={S.input} type="number" value={form.valor} onChange={e=>up("valor")(e.target.value)} placeholder="0"/>
+            </div>
+            <div>
+              <label style={S.label}>Valor comprometido ($)</label>
+              <input style={S.input} type="number" value={form.valor_comprometido} onChange={e=>up("valor_comprometido")(e.target.value)} placeholder="0"/>
+            </div>
+            <div>
+              <label style={S.label}>Proveedor / Beneficiario</label>
+              <input style={S.input} type="text" value={form.proveedor} onChange={e=>up("proveedor")(e.target.value)} placeholder="Nombre..."/>
+            </div>
+            <div>
+              <label style={S.label}>Estado</label>
+              <select style={S.select} value={form.estado} onChange={e=>up("estado")(e.target.value)}>
+                {ESTADOS.map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+              </select>
+            </div>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={S.label}>Observaciones</label>
+              <textarea style={{...S.input,height:"64px",resize:"vertical"}} value={form.observaciones} onChange={e=>up("observaciones")(e.target.value)} placeholder="Notas adicionales..."/>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:"10px",marginTop:"24px"}}>
+            <button onClick={onClose} style={{...S.btn,background:"#f0ebe0",color:"#4a4540"}}>Cancelar</button>
+            <button onClick={()=>saveMovimiento(form)} disabled={saving||!form.concepto_id||!form.descripcion||!form.fecha}
+              style={{...S.btn,background:"var(--accent)",color:"#fff",opacity:saving?0.6:1}}>
+              {saving?"Guardando...":"Guardar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MODAL NUEVO CONCEPTO ──────────────────────────────────────────────
+  function ModalConcepto({onClose, item}) {
+    const [form, setForm] = React.useState({
+      nombre: item?.nombre||"",
+      tipo: item?.tipo||"Gastos",
+      observaciones: item?.observaciones||"",
+      orden: item?.orden||99,
+      id: item?.id||null,
+    });
+    const up = k => v => setForm(f=>({...f,[k]:v}));
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
+        <div style={{background:"#fff",borderRadius:"16px",width:"480px",maxWidth:"95vw",padding:"28px 32px",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px"}}>
+            <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"20px",color:"#1a1714"}}>{item?"Editar concepto":"Nuevo concepto"}</div>
+            <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:"20px",color:"#9e9890"}}>✕</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+            <div>
+              <label style={S.label}>Nombre del concepto *</label>
+              <input style={S.input} type="text" value={form.nombre} onChange={e=>up("nombre")(e.target.value)} placeholder="Nombre del ítem presupuestal..."/>
+            </div>
+            <div>
+              <label style={S.label}>Tipo / Categoría</label>
+              <select style={S.select} value={form.tipo} onChange={e=>up("tipo")(e.target.value)}>
+                {TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={S.label}>Observaciones / Criterio de cálculo</label>
+              <textarea style={{...S.input,height:"72px",resize:"vertical"}} value={form.observaciones} onChange={e=>up("observaciones")(e.target.value)} placeholder="Descripción..."/>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:"10px",marginTop:"24px"}}>
+            <button onClick={onClose} style={{...S.btn,background:"#f0ebe0",color:"#4a4540"}}>Cancelar</button>
+            <button onClick={()=>saveConcepto(form)} disabled={saving||!form.nombre}
+              style={{...S.btn,background:"var(--accent)",color:"#fff",opacity:saving?0.6:1}}>
+              {saving?"Guardando...":"Guardar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── VISTA DASHBOARD ────────────────────────────────────────────────────
+  function VistaDashboard() {
+    const alertasCalc = getAlertas();
+    const conceptosPorTipo = {};
+    conceptos.forEach(c => {
+      const t = c.tipo||"Otros";
+      if (!conceptosPorTipo[t]) conceptosPorTipo[t] = {aprobado:0,ejecutado:0};
+      conceptosPorTipo[t].aprobado += totalAprobadoPorConcepto(c.id);
+      conceptosPorTipo[t].ejecutado += totalEjecutadoPorConcepto(c.id);
+    });
+
+    return (
+      <div>
+        {/* Selector de mes */}
+        <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"24px",alignItems:"center"}}>
+          <span style={{fontSize:"12px",color:"#9e9890",fontWeight:"600"}}>Periodo:</span>
+          {[{v:0,l:"Todo el año"},...MESES.map((m,i)=>({v:i+1,l:m}))].map(({v,l})=>(
+            <button key={v} onClick={()=>setFiltroMes(v)} style={{
+              padding:"5px 12px",borderRadius:"20px",border:"1px solid",fontSize:"12px",fontWeight:"600",cursor:"pointer",
+              background:filtroMes===v?"var(--accent)":"transparent",
+              color:filtroMes===v?"#fff":"#9e9890",
+              borderColor:filtroMes===v?"var(--accent)":"#e0d8cc",
+            }}>{l}</button>
+          ))}
+        </div>
+
+        {/* KPIs */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"16px",marginBottom:"24px"}}>
+          {[
+            {label:"Presupuesto aprobado",val:totalAprobado,color:"#1a1714",icon:"📋"},
+            {label:"Ejecutado",val:totalEjecutado,color:"#c9a84c",icon:"✅"},
+            {label:"Comprometido",val:totalComprometido,color:"#6366f1",icon:"🔒"},
+            {label:"Disponible",val:totalDisponible,color:totalDisponible<0?"#ef4444":"#10b981",icon:"💰"},
+          ].map(({label,val,color,icon})=>(
+            <div key={label} style={S.statCard}>
+              <div style={{fontSize:"20px",marginBottom:"4px"}}>{icon}</div>
+              <div style={{fontSize:"11px",fontWeight:"600",color:"#9e9890",textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</div>
+              <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color}}>{fmt(val)}</div>
+              <div style={{fontSize:"11px",color:"#b8b0a6"}}>{fmtFull(val)}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Barra ejecución global */}
+        <div style={{...S.card,marginBottom:"24px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+            <div style={{fontWeight:"700",fontSize:"15px",color:"#1a1714"}}>Ejecución presupuestal</div>
+            <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"24px",color:pctEjecucion>100?"#ef4444":"#c9a84c"}}>
+              {pctEjecucion.toFixed(1)}%
+            </div>
+          </div>
+          <BarraProgreso pct={pctEjecucion} height={12}/>
+          <div style={{display:"flex",gap:"24px",marginTop:"12px",fontSize:"12px",color:"#9e9890"}}>
+            <span>Ejecutado: <strong style={{color:"#c9a84c"}}>{fmt(totalEjecutado)}</strong></span>
+            <span>Comprometido: <strong style={{color:"#6366f1"}}>{fmt(totalComprometido)}</strong></span>
+            <span>Presupuesto: <strong style={{color:"#1a1714"}}>{fmt(totalAprobado)}</strong></span>
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"24px",marginBottom:"24px"}}>
+          {/* Gráfica mensual */}
+          <div style={{...S.card,gridColumn:"1/-1"}}>
+            <div style={{fontWeight:"700",fontSize:"15px",color:"#1a1714",marginBottom:"16px"}}>Comparativo mensual — Presupuesto vs Ejecutado</div>
+            <GraficaMensual/>
+          </div>
+        </div>
+
+        {/* Por tipo */}
+        <div style={{...S.card,marginBottom:"24px"}}>
+          <div style={{fontWeight:"700",fontSize:"15px",color:"#1a1714",marginBottom:"16px"}}>Ejecución por categoría</div>
+          <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+            {Object.entries(conceptosPorTipo).sort((a,b)=>b[1].aprobado-a[1].aprobado).map(([tipo,{aprobado:apr,ejecutado:eje}])=>{
+              const pct = apr>0?(eje/apr)*100:0;
+              return (
+                <div key={tipo}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
+                    <span style={{...S.badge,background:colorTipo(tipo)+"22",color:colorTipo(tipo),border:`1px solid ${colorTipo(tipo)}44`}}>{tipo}</span>
+                    <span style={{fontSize:"12px",color:"#9e9890"}}>{fmt(eje)} / {fmt(apr)} — {pct.toFixed(0)}%</span>
+                  </div>
+                  <BarraProgreso pct={pct} color={colorTipo(tipo)}/>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Alertas */}
+        {alertasCalc.length > 0 && (
+          <div style={{...S.card,borderColor:"#fde68a",background:"#fffbeb"}}>
+            <div style={{fontWeight:"700",fontSize:"15px",color:"#92400e",marginBottom:"12px"}}>⚠️ Alertas presupuestales</div>
+            {alertasCalc.map((a,i)=>(
+              <div key={i} style={{
+                padding:"8px 12px",borderRadius:"8px",marginBottom:"8px",fontSize:"13px",
+                background:a.tipo==="peligro"?"#fee2e2":"#fef9c3",
+                color:a.tipo==="peligro"?"#991b1b":"#713f12",
+                border:`1px solid ${a.tipo==="peligro"?"#fca5a5":"#fde68a"}`,
+              }}>
+                {a.tipo==="peligro"?"🔴":"🟡"} {a.msg}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── VISTA PRESUPUESTO (tabla de conceptos con aprobado/ejecutado) ──────
+  function VistaPresupuesto() {
+    const [mesVer, setMesVer] = React.useState(0);
+    return (
+      <div>
+        <div style={{display:"flex",gap:"12px",flexWrap:"wrap",marginBottom:"20px",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
+            <span style={{fontSize:"12px",color:"#9e9890",fontWeight:"600"}}>Mes:</span>
+            {[{v:0,l:"Anual"},...MESES.map((m,i)=>({v:i+1,l:m}))].map(({v,l})=>(
+              <button key={v} onClick={()=>setMesVer(v)} style={{
+                padding:"5px 10px",borderRadius:"20px",border:"1px solid",fontSize:"12px",fontWeight:"600",cursor:"pointer",
+                background:mesVer===v?"var(--accent)":"transparent",
+                color:mesVer===v?"#fff":"#9e9890",
+                borderColor:mesVer===v?"var(--accent)":"#e0d8cc",
+              }}>{l}</button>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:"8px"}}>
+            <select style={{...S.select,width:"auto",fontSize:"12px"}} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}>
+              <option value="">Todos los tipos</option>
+              {TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+            {isAdmin && <button onClick={()=>{setEditItem(null);setModalNuevo("concepto")}} style={{...S.btn,background:"var(--accent)",color:"#fff",fontSize:"12px",padding:"6px 14px"}}>+ Concepto</button>}
+          </div>
+        </div>
+        <div style={{...S.card,padding:0,overflow:"hidden"}}>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr>
+                  <th style={S.th}>Concepto</th>
+                  <th style={S.th}>Tipo</th>
+                  <th style={{...S.th,textAlign:"right"}}>Presupuesto</th>
+                  <th style={{...S.th,textAlign:"right"}}>Ejecutado</th>
+                  <th style={{...S.th,textAlign:"right"}}>Disponible</th>
+                  <th style={{...S.th,textAlign:"center"}}>% Ejec.</th>
+                  {isAdmin && <th style={S.th}></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {conceptosFiltrados.map(c=>{
+                  const apr = totalAprobadoPorConcepto(c.id, mesVer);
+                  const eje = totalEjecutadoPorConcepto(c.id, mesVer);
+                  const disp = apr - eje;
+                  const pct = apr>0?(eje/apr)*100:0;
+                  return (
+                    <tr key={c.id} style={{transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background="#f9f8f6"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <td style={{...S.td,maxWidth:"260px"}}>
+                        <div style={{fontWeight:"600",fontSize:"13px",color:"#1a1714",lineHeight:"1.3"}}>{c.nombre}</div>
+                        {c.observaciones && <div style={{fontSize:"11px",color:"#9e9890",marginTop:"2px",lineHeight:"1.3"}}>{c.observaciones.slice(0,80)}{c.observaciones.length>80?"…":""}</div>}
+                      </td>
+                      <td style={S.td}>
+                        <span style={{...S.badge,background:colorTipo(c.tipo)+"22",color:colorTipo(c.tipo),border:`1px solid ${colorTipo(c.tipo)}44`}}>{c.tipo}</span>
+                      </td>
+                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:"#4a4540"}}>{fmt(apr)}</td>
+                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:eje>apr?"#ef4444":"#c9a84c"}}>{fmt(eje)}</td>
+                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:disp<0?"#ef4444":"#10b981"}}>{fmt(disp)}</td>
+                      <td style={{...S.td,textAlign:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:"120px"}}>
+                          <BarraProgreso pct={pct} color={colorTipo(c.tipo)} height={6}/>
+                          <span style={{fontSize:"11px",fontWeight:"700",color:pct>100?"#ef4444":"#4a4540",whiteSpace:"nowrap"}}>{pct.toFixed(0)}%</span>
+                        </div>
+                      </td>
+                      {isAdmin && <td style={S.td}>
+                        <button onClick={()=>{setEditItem(c);setModalNuevo("concepto")}} style={{background:"none",border:"none",cursor:"pointer",color:"#9e9890",fontSize:"12px",padding:"4px 8px"}}>✏️</button>
+                      </td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{background:"#f9f8f6",fontWeight:"700"}}>
+                  <td style={{...S.td,fontWeight:"700",color:"#1a1714"}} colSpan={2}>TOTAL {anioActivo}</td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:"700",color:"#1a1714"}}>{fmtFull(totalAprobado)}</td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:"700",color:"#c9a84c"}}>{fmtFull(totalEjecutado)}</td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:"700",color:totalDisponible<0?"#ef4444":"#10b981"}}>{fmtFull(totalDisponible)}</td>
+                  <td style={{...S.td,textAlign:"center",fontWeight:"700"}}>{pctEjecucion.toFixed(1)}%</td>
+                  {isAdmin && <td style={S.td}/>}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── VISTA EJECUCIÓN ────────────────────────────────────────────────────
+  function VistaEjecucion() {
+    return (
+      <div>
+        {/* Filtros */}
+        <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"20px",alignItems:"flex-end",justifyContent:"space-between"}}>
+          <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+            <div>
+              <label style={S.label}>Mes</label>
+              <select style={{...S.select,width:"110px"}} value={filtroMes} onChange={e=>setFiltroMes(Number(e.target.value))}>
+                <option value={0}>Todos</option>
+                {MESES.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={S.label}>Tipo</label>
+              <select style={{...S.select,width:"140px"}} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}>
+                <option value="">Todos</option>
+                {TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={S.label}>Concepto</label>
+              <select style={{...S.select,width:"180px"}} value={filtroConcepto} onChange={e=>setFiltroConcepto(e.target.value)}>
+                <option value="">Todos</option>
+                {conceptos.map(c=><option key={c.id} value={c.id}>{c.nombre.slice(0,35)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={S.label}>Estado</label>
+              <select style={{...S.select,width:"130px"}} value={filtroEstado} onChange={e=>setFiltroEstado(e.target.value)}>
+                <option value="">Todos</option>
+                {ESTADOS.map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={S.label}>Empresa</label>
+              <select style={{...S.select,width:"140px"}} value={filtroEmpresa} onChange={e=>setFiltroEmpresa(e.target.value)}>
+                <option value="">Todas</option>
+                {EMPRESAS.map(e=><option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:"8px"}}>
+            <button onClick={exportarCSV} style={{...S.btn,background:"#f0ebe0",color:"#4a4540",fontSize:"12px"}}>📥 Exportar CSV</button>
+            <button onClick={()=>{setEditItem(null);setModalNuevo("movimiento")}} style={{...S.btn,background:"var(--accent)",color:"#fff",fontSize:"12px"}}>+ Registrar gasto</button>
+          </div>
+        </div>
+
+        {/* Resumen filtrado */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"20px"}}>
+          {[
+            {label:"Movimientos",val:ejecucionFiltrada.filter(e=>e.estado!=="anulado").length+" registros",raw:null},
+            {label:"Total ejecutado (filtro)",val:fmtFull(ejecucionFiltrada.filter(e=>e.estado!=="anulado").reduce((s,e)=>s+Number(e.valor||0),0)),raw:null},
+            {label:"Total anulado",val:fmtFull(ejecucionFiltrada.filter(e=>e.estado==="anulado").reduce((s,e)=>s+Number(e.valor||0),0)),raw:null},
+          ].map(({label,val})=>(
+            <div key={label} style={{...S.card,padding:"12px 16px"}}>
+              <div style={{fontSize:"11px",color:"#9e9890",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</div>
+              <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"18px",color:"#1a1714",marginTop:"2px"}}>{val}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabla */}
+        <div style={{...S.card,padding:0,overflow:"hidden"}}>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr>
+                  <th style={S.th}>Fecha</th>
+                  <th style={S.th}>Concepto</th>
+                  <th style={S.th}>Empresa</th>
+                  <th style={S.th}>Descripción</th>
+                  <th style={{...S.th,textAlign:"right"}}>Valor</th>
+                  <th style={S.th}>Estado</th>
+                  <th style={S.th}>Proveedor</th>
+                  <th style={S.th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {ejecucionFiltrada.length === 0 ? (
+                  <tr><td colSpan={8} style={{...S.td,textAlign:"center",color:"#9e9890",padding:"40px"}}>
+                    No hay registros para los filtros seleccionados.{" "}
+                    <button onClick={()=>{setEditItem(null);setModalNuevo("movimiento")}} style={{background:"none",border:"none",color:"var(--accent)",cursor:"pointer",fontWeight:"600"}}>Registrar el primero →</button>
+                  </td></tr>
+                ) : ejecucionFiltrada.map(e=>{
+                  const c = conceptos.find(x=>x.id===e.concepto_id);
+                  const colorEstado = e.estado==="ejecutado"?"#10b981":e.estado==="comprometido"?"#6366f1":"#9e9890";
+                  return (
+                    <tr key={e.id} style={{opacity:e.estado==="anulado"?0.5:1,transition:"background 0.1s"}}
+                      onMouseEnter={ev=>ev.currentTarget.style.background="#f9f8f6"}
+                      onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                      <td style={{...S.td,whiteSpace:"nowrap",fontSize:"12px"}}>{e.fecha}</td>
+                      <td style={{...S.td,maxWidth:"180px"}}>
+                        <div style={{fontWeight:"600",fontSize:"12px",color:"#1a1714",lineHeight:"1.3"}}>{c?.nombre||"—"}</div>
+                        <div style={{fontSize:"10px",color:colorTipo(c?.tipo),marginTop:"1px"}}>{c?.tipo||""}</div>
+                      </td>
+                      <td style={{...S.td,fontSize:"12px"}}>{e.empresa||"—"}</td>
+                      <td style={{...S.td,maxWidth:"200px"}}>
+                        <div style={{fontSize:"13px",color:"#4a4540"}}>{e.descripcion}</div>
+                        {e.observaciones && <div style={{fontSize:"11px",color:"#9e9890",marginTop:"2px"}}>{e.observaciones}</div>}
+                      </td>
+                      <td style={{...S.td,textAlign:"right",fontWeight:"700",fontSize:"13px",whiteSpace:"nowrap",color:e.estado==="anulado"?"#9e9890":"#1a1714"}}>
+                        {fmtFull(e.valor)}
+                        {Number(e.valor_comprometido)>0 && <div style={{fontSize:"10px",color:"#6366f1"}}>+{fmt(e.valor_comprometido)} comp.</div>}
+                      </td>
+                      <td style={S.td}>
+                        <span style={{...S.badge,background:colorEstado+"22",color:colorEstado,border:`1px solid ${colorEstado}44`}}>
+                          {e.estado}
+                        </span>
+                      </td>
+                      <td style={{...S.td,fontSize:"12px",color:"#9e9890"}}>{e.proveedor||"—"}</td>
+                      <td style={S.td}>
+                        <div style={{display:"flex",gap:"4px"}}>
+                          <button onClick={()=>{setEditItem(e);setModalNuevo("movimiento")}} title="Editar" style={{background:"none",border:"none",cursor:"pointer",padding:"4px",fontSize:"13px"}}>✏️</button>
+                          {e.estado!=="anulado" && <button onClick={()=>anularMovimiento(e.id)} title="Anular" style={{background:"none",border:"none",cursor:"pointer",padding:"4px",fontSize:"13px"}}>🚫</button>}
+                          {isAdmin && <button onClick={()=>deleteMovimiento(e.id)} title="Eliminar" style={{background:"none",border:"none",cursor:"pointer",padding:"4px",fontSize:"13px",color:"#ef4444"}}>🗑️</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── RENDER PRINCIPAL ──────────────────────────────────────────────────
+  const navItems = [
+    {id:"dashboard",label:"Dashboard",icon:"📊"},
+    {id:"presupuesto",label:"Presupuesto",icon:"📋"},
+    {id:"ejecucion",label:"Ejecución",icon:"💳"},
+  ];
+
+  return (
+    <div style={S.wrap}>
+      {/* Sidebar */}
+      <div style={S.sidebar}>
+        <div style={{padding:"20px 16px 12px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"24px"}}>
+            <div style={{width:"34px",height:"34px",background:"#c9a84c",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width="20" height="14" viewBox="0 0 52 38" fill="none"><path d="M4 34 A24 24 0 0 1 48 34" stroke="white" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 34 A16 16 0 0 1 40 34" stroke="white" strokeWidth="1.2" strokeLinecap="round"/><circle cx="26" cy="34" r="2.5" fill="white"/></svg>
+            </div>
+            <div>
+              <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"20px",lineHeight:"1.1",letterSpacing:"-0.02em",color:"#1a1714"}}>Aura</div>
+              <div style={{fontSize:"9px",color:"var(--accent)",letterSpacing:"0.1em",textTransform:"uppercase",marginTop:"3px",fontWeight:"600"}}>Presupuesto</div>
+            </div>
+          </div>
+
+          {/* Año */}
+          <div style={{marginBottom:"16px"}}>
+            <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Año</div>
+            <select value={anioActivo} onChange={e=>setAnioActivo(Number(e.target.value))} style={{...S.select,width:"100%"}}>
+              {[2024,2025,2026,2027].map(y=><option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <nav style={{flex:1,padding:"0 8px"}}>
+          <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em",paddingLeft:"8px"}}>Vistas</div>
+          {navItems.map(item=>(
+            <button key={item.id} type="button" onClick={()=>setVista(item.id)}
+              style={{...S.navItem,...(vista===item.id?S.navActive:{})}}>
+              <span>{item.icon}</span> {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{padding:"12px 8px",borderTop:"1px solid #e8e0d0"}}>
+          <button type="button" onClick={onBack} className="nav-item" style={{width:"100%"}}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M3 12l6-6M3 12l6 6"/></svg> Módulos
+          </button>
+          <button type="button" onClick={onLogout} className="nav-item" style={{width:"100%",color:"var(--danger)"}}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg> Cerrar sesión
+          </button>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={S.main}>
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"28px"}}>
+          <div>
+            <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"28px",color:"#1a1714",letterSpacing:"-0.02em",lineHeight:"1.2"}}>
+              {navItems.find(n=>n.id===vista)?.icon} {navItems.find(n=>n.id===vista)?.label}
+            </div>
+            <div style={{fontSize:"13px",color:"#9e9890",marginTop:"4px"}}>Presupuesto Gestión Humana — {anioActivo}</div>
+          </div>
+          {vista === "ejecucion" && (
+            <button onClick={()=>{setEditItem(null);setModalNuevo("movimiento")}} style={{...S.btn,background:"var(--accent)",color:"#fff",padding:"10px 20px"}}>
+              + Registrar gasto
+            </button>
+          )}
+        </div>
+
+        {loading
+          ? <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"40vh",color:"#9e9890",flexDirection:"column",gap:"12px"}}>
+              <div style={{width:"32px",height:"32px",border:"3px solid #e8e0d0",borderTopColor:"var(--accent)",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+              Cargando presupuesto...
+            </div>
+          : vista === "dashboard" ? <VistaDashboard/>
+          : vista === "presupuesto" ? <VistaPresupuesto/>
+          : <VistaEjecucion/>
+        }
+      </div>
+
+      {/* Modales */}
+      {modalNuevo === "movimiento" && <ModalMovimiento onClose={()=>{setModalNuevo(null);setEditItem(null)}} item={editItem}/>}
+      {modalNuevo === "concepto" && <ModalConcepto onClose={()=>{setModalNuevo(null);setEditItem(null)}} item={editItem}/>}
+    </div>
+  );
+}
+// ── FIN MÓDULO PRESUPUESTO ───────────────────────────────────────────────
+
 // ── APP ──
 function App() {
   const [token, setToken] = useState(()=>localStorage.getItem("gh_token")||"");
@@ -4350,7 +5213,7 @@ function App() {
   const [userId, setUserId] = useState(()=>localStorage.getItem("gh_uid")||"");
   const [modulosPermitidos, setModulosPermitidos] = useState(()=>{
     const m = localStorage.getItem("gh_modulos");
-    return m ? JSON.parse(m) : ["formacion","biblioteca","seleccion","plan_estrategico"];
+    return m ? JSON.parse(m) : ["formacion","biblioteca","seleccion","plan_estrategico","presupuesto"];
   });
   const [moduloActivo, setModuloActivo] = useState("");
   const [page, setPage] = useState("dashboard");
@@ -4369,9 +5232,9 @@ function App() {
     setUserId(user.id);
     const perfil = await fetchPerfil(user.id, tok);
     localStorage.setItem("gh_rol", perfil.rol);
-    localStorage.setItem("gh_modulos", JSON.stringify(perfil.modulos || ["formacion","biblioteca","seleccion","plan_estrategico"]));
+    localStorage.setItem("gh_modulos", JSON.stringify(perfil.modulos || ["formacion","biblioteca","seleccion","plan_estrategico","presupuesto"]));
     setRol(perfil.rol);
-    setModulosPermitidos(perfil.modulos || ["formacion","biblioteca","seleccion","plan_estrategico"]);
+    setModulosPermitidos(perfil.modulos || ["formacion","biblioteca","seleccion","plan_estrategico","presupuesto"]);
   };
   const logout = () => {
     localStorage.removeItem("gh_token");
@@ -4404,6 +5267,7 @@ function App() {
   if(moduloActivo === "biblioteca") return <ModuloBiblioteca token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
   if(moduloActivo === "seleccion") return <ModuloSeleccion token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
   if(moduloActivo === "plan_estrategico") return <ModuloPlanEstrategico token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
+  if(moduloActivo === "presupuesto") return <ModuloPresupuesto token={token} isAdmin={isAdmin} onBack={()=>setModuloActivo("")} onLogout={logout}/>;
 
   const empresasFormacion = empresas.filter(e=>e.codigo !== 'ALT');
   const filteredCaps = filtroEmpresa ? caps.filter(c=>c.empresa_id===filtroEmpresa) : caps.filter(c=>empresasFormacion.some(e=>e.id===c.empresa_id));
