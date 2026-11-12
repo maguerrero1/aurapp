@@ -4373,7 +4373,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
   const [alertas, setAlertas] = React.useState([]);
 
   const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const EMPRESAS = ["Química Orión","MaxPure","Orión L","FixNova","General"];
+  const EMPRESAS = ["Química Orión","MaxPure","Orión L","FixNova"];
   const TIPOS = ["Bienestar","Gastos","SST","Software","Gestión del conocimiento","Nómina","Gastos GH"];
   const ESTADOS = ["ejecutado","comprometido","anulado"];
 
@@ -4381,10 +4381,11 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
   async function loadAll() {
     setLoading(true);
     try {
+      const empresaFiltro = filtroEmpresa || "Química Orión";
       const [cRes, aRes, eRes] = await Promise.all([
         api(`/rest/v1/presupuesto_conceptos?order=orden.asc`, token),
-        api(`/rest/v1/presupuesto_aprobado?anio=eq.${anioActivo}&order=mes.asc`, token),
-        api(`/rest/v1/presupuesto_ejecucion?anio=eq.${anioActivo}&order=fecha.desc`, token),
+        api(`/rest/v1/presupuesto_aprobado?anio=eq.${anioActivo}&empresa=eq.${encodeURIComponent(empresaFiltro)}&order=mes.asc`, token),
+        api(`/rest/v1/presupuesto_ejecucion?anio=eq.${anioActivo}&empresa=eq.${encodeURIComponent(empresaFiltro)}&order=fecha.desc`, token),
       ]);
       setConceptos(cRes.ok ? await cRes.json() : []);
       setAprobado(aRes.ok ? await aRes.json() : []);
@@ -4395,7 +4396,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
     finally { setLoading(false); }
   }
 
-  React.useEffect(() => { loadAll(); }, [anioActivo]);
+  React.useEffect(() => { loadAll(); }, [anioActivo, filtroEmpresa]);
 
   function calcularAlertas(ejData) {
     // Se calculan después de que aprobado y conceptos también estén listos
@@ -4678,7 +4679,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
       valor: item?.valor||"",
       valor_comprometido: item?.valor_comprometido||"",
       proveedor: item?.proveedor||"",
-      empresa: item?.empresa||"Química Orión",
+      empresa: item?.empresa||(filtroEmpresa||"Química Orión"),
       estado: item?.estado||"ejecutado",
       observaciones: item?.observaciones||"",
       id: item?.id||null,
@@ -5024,12 +5025,10 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
                 {ESTADOS.map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
               </select>
             </div>
-            <div>
-              <label style={S.label}>Empresa</label>
-              <select style={{...S.select,width:"140px"}} value={filtroEmpresa} onChange={e=>setFiltroEmpresa(e.target.value)}>
-                <option value="">Todas</option>
-                {EMPRESAS.map(e=><option key={e} value={e}>{e}</option>)}
-              </select>
+            <div style={{display:"flex",alignItems:"flex-end"}}>
+              <div style={{...S.badge,background:"#fdf9f0",color:"var(--accent)",border:"1px solid #e8d08a",padding:"8px 12px",fontSize:"12px",borderRadius:"8px"}}>
+                🏢 {filtroEmpresa||"Química Orión"}
+              </div>
             </div>
           </div>
           <div style={{display:"flex",gap:"8px"}}>
@@ -5141,6 +5140,13 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
             </div>
           </div>
 
+          {/* Empresa */}
+          <div style={{marginBottom:"12px"}}>
+            <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Empresa</div>
+            <select value={filtroEmpresa||"Química Orión"} onChange={e=>setFiltroEmpresa(e.target.value)} style={{...S.select,width:"100%",fontWeight:"600",color:"var(--accent)",borderColor:"#e8d08a",background:"#fdf9f0"}}>
+              {EMPRESAS.map(e=><option key={e} value={e}>{e}</option>)}
+            </select>
+          </div>
           {/* Año */}
           <div style={{marginBottom:"16px"}}>
             <div style={{fontSize:"10px",color:"#9e9890",fontWeight:"600",marginBottom:"6px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Año</div>
@@ -5178,7 +5184,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
             <div style={{fontFamily:"Fraunces,serif",fontWeight:"700",fontSize:"28px",color:"#1a1714",letterSpacing:"-0.02em",lineHeight:"1.2"}}>
               {navItems.find(n=>n.id===vista)?.icon} {navItems.find(n=>n.id===vista)?.label}
             </div>
-            <div style={{fontSize:"13px",color:"#9e9890",marginTop:"4px"}}>Presupuesto Gestión Humana — {anioActivo}</div>
+            <div style={{fontSize:"13px",color:"#9e9890",marginTop:"4px"}}>Presupuesto GH — {filtroEmpresa||"Química Orión"} — {anioActivo}</div>
           </div>
           {vista === "ejecucion" && (
             <button onClick={()=>{setEditItem(null);setModalNuevo("movimiento")}} style={{...S.btn,background:"var(--accent)",color:"#fff",padding:"10px 20px"}}>
