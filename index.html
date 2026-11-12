@@ -4356,6 +4356,28 @@ function ModuloPlanEstrategico({ token, isAdmin, onBack, onLogout }) {
 // ──────────────────────────────────────────────────────────────────────────
 
 function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
+  // Helper local con firma (path, token, method?, body?) → Response-like
+  async function apiP(path, tok, method="GET", body=undefined) {
+    const url = path.startsWith("http") ? path : `${SUPABASE_URL}${path}`;
+    const opts = {
+      method,
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${tok||SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    return {
+      ok: res.ok,
+      status: res.status,
+      json: () => Promise.resolve(text ? JSON.parse(text) : null),
+    };
+  }
+
   const [vista, setVista] = React.useState("dashboard");
   const [conceptos, setConceptos] = React.useState([]);
   const [aprobado, setAprobado] = React.useState([]);
@@ -4383,9 +4405,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
     try {
       const empresaFiltro = filtroEmpresa || "Química Orión";
       const [cRes, aRes, eRes] = await Promise.all([
-        api(`/rest/v1/presupuesto_conceptos?order=orden.asc`, token),
-        api(`/rest/v1/presupuesto_aprobado?anio=eq.${anioActivo}&empresa=eq.${encodeURIComponent(empresaFiltro)}&order=mes.asc`, token),
-        api(`/rest/v1/presupuesto_ejecucion?anio=eq.${anioActivo}&empresa=eq.${encodeURIComponent(empresaFiltro)}&order=fecha.desc`, token),
+        apiP(`/rest/v1/presupuesto_conceptos?order=orden.asc`, token),
+        apiP(`/rest/v1/presupuesto_aprobado?anio=eq.${anioActivo}&empresa=eq.${empresaFiltro}&order=mes.asc`, token),
+        apiP(`/rest/v1/presupuesto_ejecucion?anio=eq.${anioActivo}&empresa=eq.${empresaFiltro}&order=fecha.desc`, token),
       ]);
       setConceptos(cRes.ok ? await cRes.json() : []);
       setAprobado(aRes.ok ? await aRes.json() : []);
@@ -4453,9 +4475,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
       };
       let res;
       if (form.id) {
-        res = await api(`/rest/v1/presupuesto_ejecucion?id=eq.${form.id}`, token, "PATCH", payload);
+        res = await apiP(`/rest/v1/presupuesto_ejecucion?id=eq.${form.id}`, token, "PATCH", payload);
       } else {
-        res = await api(`/rest/v1/presupuesto_ejecucion`, token, "POST", payload);
+        res = await apiP(`/rest/v1/presupuesto_ejecucion`, token, "POST", payload);
       }
       if (res.ok) { setModalNuevo(null); setEditItem(null); await loadAll(); }
       else { const err = await res.json(); alert("Error: " + JSON.stringify(err)); }
@@ -4465,13 +4487,13 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
 
   async function deleteMovimiento(id) {
     if (!confirm("¿Eliminar este movimiento?")) return;
-    const res = await api(`/rest/v1/presupuesto_ejecucion?id=eq.${id}`, token, "DELETE");
+    const res = await apiP(`/rest/v1/presupuesto_ejecucion?id=eq.${id}`, token, "DELETE");
     if (res.ok) loadAll();
   }
 
   async function anularMovimiento(id) {
     if (!confirm("¿Anular este movimiento? Quedará registrado pero no sumará a la ejecución.")) return;
-    const res = await api(`/rest/v1/presupuesto_ejecucion?id=eq.${id}`, token, "PATCH", {estado:"anulado"});
+    const res = await apiP(`/rest/v1/presupuesto_ejecucion?id=eq.${id}`, token, "PATCH", {estado:"anulado"});
     if (res.ok) loadAll();
   }
 
@@ -4487,9 +4509,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
       };
       let res;
       if (form.id) {
-        res = await api(`/rest/v1/presupuesto_conceptos?id=eq.${form.id}`, token, "PATCH", payload);
+        res = await apiP(`/rest/v1/presupuesto_conceptos?id=eq.${form.id}`, token, "PATCH", payload);
       } else {
-        res = await api(`/rest/v1/presupuesto_conceptos`, token, "POST", payload);
+        res = await apiP(`/rest/v1/presupuesto_conceptos`, token, "POST", payload);
       }
       if (res.ok) { setModalNuevo(null); setEditItem(null); await loadAll(); }
       else { const err = await res.json(); alert("Error: " + JSON.stringify(err)); }
