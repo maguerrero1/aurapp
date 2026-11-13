@@ -4827,6 +4827,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
     const [consDatos, setConsDatos] = React.useState({aprobado:[], ejecucion:[]});
     const [consLoading, setConsLoading] = React.useState(true);
     const [consMes, setConsMes] = React.useState(0); // 0 = todos
+    const [consTipo, setConsTipo] = React.useState(""); // "" = todos
 
     React.useEffect(() => {
       async function loadConsolidado() {
@@ -4870,7 +4871,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
     const pct = totalAprobado > 0 ? (totalEjecutado/totalAprobado)*100 : 0;
 
     // Only show rows that have some value
-    const rows = conceptos.filter(c => sumAprobado(c.id) > 0 || sumEjecutado(c.id) > 0);
+    const rows = conceptos.filter(c => (sumAprobado(c.id) > 0 || sumEjecutado(c.id) > 0) && (!consTipo || c.tipo === consTipo));
 
     return (
       <div>
@@ -4880,6 +4881,11 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
           <select value={consMes} onChange={e=>setConsMes(Number(e.target.value))} style={{...S.select,width:"120px"}}>
             <option value={0}>Todos</option>
             {MESES.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
+          </select>
+          <div style={{fontSize:"13px",color:"#6b6560",fontWeight:"600",marginLeft:"8px"}}>Tipo:</div>
+          <select value={consTipo} onChange={e=>setConsTipo(e.target.value)} style={{...S.select,width:"160px"}}>
+            <option value="">Todos</option>
+            {TIPOS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>
           <div style={{marginLeft:"auto",display:"flex",gap:"8px"}}>
             {EMPRESAS_CONS.map(emp=>(
