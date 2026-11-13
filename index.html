@@ -4866,8 +4866,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
         .reduce((s,e) => s + Number(e.valor||0), 0);
     }
 
-    const totalAprobado = conceptos.reduce((s,c)=>s+sumAprobado(c.id),0);
-    const totalEjecutado = conceptos.reduce((s,c)=>s+sumEjecutado(c.id),0);
+    const conceptosFiltrados = conceptos.filter(c => !consTipo || c.tipo === consTipo);
+    const totalAprobado = conceptosFiltrados.reduce((s,c)=>s+sumAprobado(c.id),0);
+    const totalEjecutado = conceptosFiltrados.reduce((s,c)=>s+sumEjecutado(c.id),0);
     const pct = totalAprobado > 0 ? (totalEjecutado/totalAprobado)*100 : 0;
 
     // Only show rows that have some value
