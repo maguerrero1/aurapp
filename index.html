@@ -4542,14 +4542,41 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
   }
 
   // ── HELPERS ─────────────────────────────────────────────────────────────
-  const fmt = v => {
-    const n = Number(v||0);
-    if (n >= 1e9) return "$" + (n/1e9).toFixed(1) + "B";
-    if (n >= 1e6) return "$" + (n/1e6).toFixed(1) + "M";
-    if (n >= 1e3) return "$" + (n/1e3).toFixed(0) + "K";
-    return "$" + n.toLocaleString("es-CO");
-  };
+  const fmt = v => "$" + Number(v||0).toLocaleString("es-CO", {minimumFractionDigits:0});
   const fmtFull = v => "$" + Number(v||0).toLocaleString("es-CO", {minimumFractionDigits:0});
+
+  // Valor clickeable que copia al portapapeles
+  function CV({n, style}) {
+    const full = "$" + Number(n||0).toLocaleString("es-CO", {minimumFractionDigits:0});
+    const [copied, setCopied] = React.useState(false);
+    function handleClick(e) {
+      e.stopPropagation();
+      const val = String(Number(n||0));
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(val).then(()=>{
+          setCopied(true); setTimeout(()=>setCopied(false),1200);
+        }).catch(fallback);
+      } else { fallback(); }
+      function fallback() {
+        const el = document.createElement("textarea");
+        el.value = val; document.body.appendChild(el);
+        el.select(); document.execCommand("copy");
+        document.body.removeChild(el);
+        setCopied(true); setTimeout(()=>setCopied(false),1200);
+      }
+    }
+    return (
+      <span onClick={handleClick}
+        title={"Clic para copiar: " + val}
+        style={{cursor:"pointer", userSelect:"none",
+          borderBottom: copied ? "2px solid var(--accent)" : "1px dashed #ccc",
+          paddingBottom:"1px", transition:"border-color 0.15s",
+          color: copied ? "var(--accent)" : undefined,
+          ...style}}>
+        {copied ? "✓ copiado" : full}
+      </span>
+    );
+  }
 
   function colorTipo(tipo) {
     const map = {
@@ -4656,13 +4683,19 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
   function GraficaMensual() {
     const datos = getDatosMensuales();
     const maxVal = Math.max(...datos.map(d=>Math.max(d.presupuesto,d.ejecutado)),1);
-    const W=580,H=180,padL=12,padB=24,padT=12,padR=12;
-    const gW=W-padL-padR, gH=H-padB-padT;
+    const W=580,H=220,padL=12,padB=24,padT=16,padR=12;
+    const gW=W-padL-padR, gH=H-padB-padT-40; // reserve 40px for trend line area
     const barW = gW/12;
+    const trendH = 36; // height of trend area below bars
+    const trendY = padT + gH + 4;
+
+    // % variación por mes: (ejecutado/presupuesto - 1)*100, null si sin presupuesto
+    const trends = datos.map(d => d.presupuesto > 0 ? (d.ejecutado/d.presupuesto)*100 : null);
 
     return (
       <div style={{overflowX:"auto"}}>
         <svg width={W} height={H} style={{display:"block",minWidth:"420px"}}>
+          {/* Barras */}
           {datos.map((d,i)=>{
             const x = padL + i*barW;
             const hP = (d.presupuesto/maxVal)*gH;
@@ -4674,17 +4707,41 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
                 <rect x={x+2} y={yP} width={barW/2-3} height={hP} fill="#e8e0d0" rx="2"/>
                 <rect x={x+barW/2+1} y={yE} width={barW/2-3} height={hE}
                   fill={d.ejecutado>d.presupuesto?"#ef4444":"#c9a84c"} rx="2"/>
-                <text x={x+barW/2} y={H-6} textAnchor="middle" fontSize="9" fill="#9e9890">{d.mes}</text>
+                <text x={x+barW/2} y={padT+gH+14} textAnchor="middle" fontSize="9" fill="#9e9890">{d.mes}</text>
               </g>
             );
           })}
-          {/* Eje Y simple */}
+          {/* Eje base */}
           <line x1={padL} y1={padT} x2={padL} y2={padT+gH} stroke="#e8e0d0" strokeWidth="1"/>
           <line x1={padL} y1={padT+gH} x2={W-padR} y2={padT+gH} stroke="#e8e0d0" strokeWidth="1"/>
+          {/* Separador zona tendencia */}
+          <line x1={padL} y1={trendY+2} x2={W-padR} y2={trendY+2} stroke="#f0ebe3" strokeWidth="1" strokeDasharray="4 2"/>
+          {/* Línea de tendencia % */}
+          {trends.map((pct,i)=>{
+            if (pct === null) return null;
+            const cx = padL + i*barW + barW/2;
+            const cy = trendY + trendH/2 - Math.min(Math.max((pct-50)*0.3,-14),14); // center at 50%, ±14px
+            const color = pct > 100 ? "#ef4444" : pct > 90 ? "#d97706" : "#16a34a";
+            const next = trends[i+1];
+            const nx = padL + (i+1)*barW + barW/2;
+            const ny = next !== null && next !== undefined ? trendY + trendH/2 - Math.min(Math.max((next-50)*0.3,-14),14) : null;
+            return (
+              <g key={i}>
+                {ny !== null && <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#9e9890" strokeWidth="1" strokeDasharray="3 2" opacity="0.5"/>}
+                <circle cx={cx} cy={cy} r="5" fill={color} opacity="0.9"/>
+                <text x={cx} y={cy-7} textAnchor="middle" fontSize="8" fontWeight="700" fill={color}>
+                  {pct.toFixed(0)}%
+                </text>
+              </g>
+            );
+          })}
+          {/* Etiqueta zona tendencia */}
+          <text x={padL+2} y={trendY+trendH/2+4} fontSize="8" fill="#b8b0a6" fontStyle="italic">ejec/presup</text>
         </svg>
         <div style={{display:"flex",gap:"16px",marginTop:"8px",fontSize:"11px",color:"#9e9890",paddingLeft:"12px"}}>
           <span style={{display:"flex",alignItems:"center",gap:"4px"}}><span style={{width:10,height:10,background:"#e8e0d0",borderRadius:"2px",display:"inline-block"}}/> Presupuesto</span>
           <span style={{display:"flex",alignItems:"center",gap:"4px"}}><span style={{width:10,height:10,background:"#c9a84c",borderRadius:"2px",display:"inline-block"}}/> Ejecutado</span>
+          <span style={{display:"flex",alignItems:"center",gap:"4px"}}><span style={{width:10,height:10,background:"#16a34a",borderRadius:"50%",display:"inline-block"}}/> % ejecución mensual</span>
         </div>
       </div>
     );
@@ -4901,17 +4958,17 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"16px",marginBottom:"24px"}}>
           <div style={S.card}>
             <div style={{fontSize:"11px",color:"#9e9890",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"8px"}}>Total Aprobado</div>
-            <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color:"#1a1714"}}>{fmt(totalAprobado)}</div>
+            <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color:"#1a1714"}}><CV n={totalAprobado}/></div>
             <div style={{fontSize:"11px",color:"#9e9890",marginTop:"4px"}}>3 empresas · {consMes===0?"Año completo":MESES[consMes-1]}</div>
           </div>
           <div style={S.card}>
             <div style={{fontSize:"11px",color:"#9e9890",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"8px"}}>Total Ejecutado</div>
-            <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color: pct>90?"var(--danger)":pct>70?"#d97706":"#16a34a"}}>{fmt(totalEjecutado)}</div>
+            <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color: pct>90?"var(--danger)":pct>70?"#d97706":"#16a34a"}}><CV n={totalEjecutado}/></div>
             <div style={{fontSize:"11px",color:"#9e9890",marginTop:"4px"}}>{pct.toFixed(1)}% del presupuesto</div>
           </div>
           <div style={S.card}>
             <div style={{fontSize:"11px",color:"#9e9890",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"8px"}}>Disponible</div>
-            <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color: totalAprobado-totalEjecutado<0?"var(--danger)":"#1a1714"}}>{fmt(totalAprobado-totalEjecutado)}</div>
+            <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color: totalAprobado-totalEjecutado<0?"var(--danger)":"#1a1714"}}><CV n={totalAprobado-totalEjecutado}/></div>
             <div style={{fontSize:"11px",color:"#9e9890",marginTop:"4px"}}>Saldo conjunto</div>
           </div>
         </div>
@@ -4948,9 +5005,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
                 return (
                   <tr key={c.id} style={{borderBottom:"1px solid #f0ebe3",background: i%2===0?"#fff":"#fdfcfa"}}>
                     <td style={{padding:"10px 16px",color:"#1a1714",fontWeight:"500"}}>{c.nombre}</td>
-                    <td style={{padding:"10px 16px",textAlign:"right",color:"#4a4540"}}>{fmt(ap)}</td>
-                    <td style={{padding:"10px 16px",textAlign:"right",fontWeight:"600",color: p>100?"var(--danger)":p>90?"#d97706":"#16a34a"}}>{fmt(ej)}</td>
-                    <td style={{padding:"10px 16px",textAlign:"right",color: disp<0?"var(--danger)":"#4a4540"}}>{fmt(disp)}</td>
+                    <td style={{padding:"10px 16px",textAlign:"right",color:"#4a4540"}}><CV n={ap}/></td>
+                    <td style={{padding:"10px 16px",textAlign:"right",fontWeight:"600",color: p>100?"var(--danger)":p>90?"#d97706":"#16a34a"}}><CV n={ej}/></td>
+                    <td style={{padding:"10px 16px",textAlign:"right",color: disp<0?"var(--danger)":"#4a4540"}}><CV n={disp}/></td>
                     <td style={{padding:"10px 16px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                         <div style={{flex:1,height:"6px",background:"#f0ebe3",borderRadius:"3px",overflow:"hidden"}}>
@@ -4966,9 +5023,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
             <tfoot>
               <tr style={{background:"#fdf9f0",borderTop:"2px solid #e8d08a",fontWeight:"700"}}>
                 <td style={{padding:"12px 16px",color:"#1a1714"}}>TOTAL</td>
-                <td style={{padding:"12px 16px",textAlign:"right",color:"#1a1714"}}>{fmt(totalAprobado)}</td>
-                <td style={{padding:"12px 16px",textAlign:"right",color: pct>100?"var(--danger)":pct>90?"#d97706":"#16a34a"}}>{fmt(totalEjecutado)}</td>
-                <td style={{padding:"12px 16px",textAlign:"right",color: totalAprobado-totalEjecutado<0?"var(--danger)":"#1a1714"}}>{fmt(totalAprobado-totalEjecutado)}</td>
+                <td style={{padding:"12px 16px",textAlign:"right",color:"#1a1714"}}><CV n={totalAprobado}/></td>
+                <td style={{padding:"12px 16px",textAlign:"right",color: pct>100?"var(--danger)":pct>90?"#d97706":"#16a34a"}}><CV n={totalEjecutado}/></td>
+                <td style={{padding:"12px 16px",textAlign:"right",color: totalAprobado-totalEjecutado<0?"var(--danger)":"#1a1714"}}><CV n={totalAprobado-totalEjecutado}/></td>
                 <td style={{padding:"12px 16px",textAlign:"center",color:"var(--accent)"}}>{pct.toFixed(1)}%</td>
               </tr>
             </tfoot>
@@ -5014,7 +5071,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
             <div key={label} style={S.statCard}>
               <div style={{fontSize:"20px",marginBottom:"4px"}}>{icon}</div>
               <div style={{fontSize:"11px",fontWeight:"600",color:"#9e9890",textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</div>
-              <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color}}>{fmt(val)}</div>
+              <div style={{fontFamily:"Fraunces,serif",fontSize:"24px",fontWeight:"700",color}}><CV n={val}/></div>
               <div style={{fontSize:"11px",color:"#b8b0a6"}}>{fmtFull(val)}</div>
             </div>
           ))}
@@ -5030,9 +5087,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
           </div>
           <BarraProgreso pct={pctEjecucion} height={12}/>
           <div style={{display:"flex",gap:"24px",marginTop:"12px",fontSize:"12px",color:"#9e9890"}}>
-            <span>Ejecutado: <strong style={{color:"#c9a84c"}}>{fmt(totalEjecutado)}</strong></span>
-            <span>Comprometido: <strong style={{color:"#6366f1"}}>{fmt(totalComprometido)}</strong></span>
-            <span>Presupuesto: <strong style={{color:"#1a1714"}}>{fmt(totalAprobado)}</strong></span>
+            <span>Ejecutado: <strong style={{color:"#c9a84c"}}><CV n={totalEjecutado}/></strong></span>
+            <span>Comprometido: <strong style={{color:"#6366f1"}}><CV n={totalComprometido}/></strong></span>
+            <span>Presupuesto: <strong style={{color:"#1a1714"}}><CV n={totalAprobado}/></strong></span>
           </div>
         </div>
 
@@ -5054,7 +5111,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
                 <div key={tipo}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
                     <span style={{...S.badge,background:colorTipo(tipo)+"22",color:colorTipo(tipo),border:`1px solid ${colorTipo(tipo)}44`}}>{tipo}</span>
-                    <span style={{fontSize:"12px",color:"#9e9890"}}>{fmt(eje)} / {fmt(apr)} — {pct.toFixed(0)}%</span>
+                    <span style={{fontSize:"12px",color:"#9e9890"}}><CV n={eje}/> / <CV n={apr}/> — {pct.toFixed(0)}%</span>
                   </div>
                   <BarraProgreso pct={pct} color={colorTipo(tipo)}/>
                 </div>
@@ -5137,9 +5194,9 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
                       <td style={S.td}>
                         <span style={{...S.badge,background:colorTipo(c.tipo)+"22",color:colorTipo(c.tipo),border:`1px solid ${colorTipo(c.tipo)}44`}}>{c.tipo}</span>
                       </td>
-                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:"#4a4540"}}>{fmt(apr)}</td>
-                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:eje>apr?"#ef4444":"#c9a84c"}}>{fmt(eje)}</td>
-                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:disp<0?"#ef4444":"#10b981"}}>{fmt(disp)}</td>
+                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:"#4a4540"}}><CV n={apr}/></td>
+                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:eje>apr?"#ef4444":"#c9a84c"}}><CV n={eje}/></td>
+                      <td style={{...S.td,textAlign:"right",fontWeight:"600",color:disp<0?"#ef4444":"#10b981"}}><CV n={disp}/></td>
                       <td style={{...S.td,textAlign:"center"}}>
                         <div style={{display:"flex",alignItems:"center",gap:"8px",minWidth:"120px"}}>
                           <BarraProgreso pct={pct} color={colorTipo(c.tipo)} height={6}/>
@@ -5272,7 +5329,7 @@ function ModuloPresupuesto({ token, isAdmin, onBack, onLogout }) {
                       </td>
                       <td style={{...S.td,textAlign:"right",fontWeight:"700",fontSize:"13px",whiteSpace:"nowrap",color:e.estado==="anulado"?"#9e9890":"#1a1714"}}>
                         {fmtFull(e.valor)}
-                        {Number(e.valor_comprometido)>0 && <div style={{fontSize:"10px",color:"#6366f1"}}>+{fmt(e.valor_comprometido)} comp.</div>}
+                        {Number(e.valor_comprometido)>0 && <div style={{fontSize:"10px",color:"#6366f1"}}>+<CV n={e.valor_comprometido}/> comp.</div>}
                       </td>
                       <td style={S.td}>
                         <span style={{...S.badge,background:colorEstado+"22",color:colorEstado,border:`1px solid ${colorEstado}44`}}>
